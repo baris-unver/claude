@@ -14,9 +14,22 @@ build/test_pipeline: tests/test_pipeline.c $(SRC)
 	@mkdir -p build
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
+build/replay_dcs: tools/replay_dcs.c $(SRC)
+	@mkdir -p build
+	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+
+# Same replay tool with per-feature instrumentation for the visualizer.
+build/replay_dump: tools/replay_dcs.c $(SRC)
+	@mkdir -p build
+	$(CC) $(CFLAGS) -DVH_DEBUG_TRACKS -o $@ $^ $(LDLIBS)
+
 .PHONY: test clean
 test: build/test_pipeline
 	./build/test_pipeline
 
 clean:
 	rm -rf build $(OBJ)
+
+build/profile_pipeline: tools/profile_pipeline.c $(SRC)
+	@mkdir -p build
+	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
