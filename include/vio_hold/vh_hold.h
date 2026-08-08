@@ -74,6 +74,15 @@ typedef struct {
     /* Warm start: last frame's median residual, added to the rotation
      * prediction as the KLT initial guess. */
     float last_res_x, last_res_y;
+
+#ifdef VH_DEBUG_TRACKS
+    /* Host-side instrumentation for offline visualization (never define on
+     * firmware builds). Per keyframe feature, state from the last
+     * vh_process_frame: 0 = inactive/skipped, 1 = track failed, 2 = tracked. */
+    uint8_t dbg_state[VH_MAX_FEATURES];
+    float dbg_pred[VH_MAX_FEATURES][2]; /* rotation-only prediction, px */
+    float dbg_trk[VH_MAX_FEATURES][2];  /* KLT-tracked position, px */
+#endif
 } vh_ctx;
 
 void vh_init(vh_ctx *ctx, const vh_params *prm);

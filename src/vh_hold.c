@@ -92,6 +92,9 @@ vh_result vh_process_frame(vh_ctx *ctx, const vh_image *img, uint64_t t_us)
     int n_ok = 0;
 
     for (int i = 0; i < ctx->n_key; i++) {
+#ifdef VH_DEBUG_TRACKS
+        ctx->dbg_state[i] = 0;
+#endif
         if (!ctx->active[i])
             continue;
 
@@ -104,9 +107,19 @@ vh_result vh_process_frame(vh_ctx *ctx, const vh_image *img, uint64_t t_us)
         /* Warm-start with last frame's median translation residual. */
         float cu = pu + ctx->last_res_x;
         float cv = pv + ctx->last_res_y;
+#ifdef VH_DEBUG_TRACKS
+        ctx->dbg_state[i] = 1;
+        ctx->dbg_pred[i][0] = pu;
+        ctx->dbg_pred[i][1] = pv;
+#endif
         if (!vh_klt_track(&ctx->key_pyr, &ctx->cur_pyr,
                           ctx->fx[i], ctx->fy[i], &cu, &cv))
             continue;
+#ifdef VH_DEBUG_TRACKS
+        ctx->dbg_state[i] = 2;
+        ctx->dbg_trk[i][0] = cu;
+        ctx->dbg_trk[i][1] = cv;
+#endif
 
         const float dx = cu - pu;
         const float dy = cv - pv;
