@@ -31,6 +31,8 @@ typedef struct {
     float last_w[3];           /* most recent integrated rate (camera frame),
                                   used to extrapolate to frame timestamps that
                                   fall between gyro samples */
+    float bias_c[3];           /* camera-frame gyro bias estimate, rad/s;
+                                  subtracted from each mapped sample */
     bool have_time;
 } vh_rotcomp;
 
@@ -39,6 +41,10 @@ void vh_rot_init(vh_rotcomp *rc, const float r_cb[9]);
 /* Push one gyro sample (body frame). Call from the IMU driver/ISR context;
  * samples must arrive in non-decreasing timestamp order. */
 void vh_rot_push(vh_rotcomp *rc, uint64_t t_us, float wx, float wy, float wz);
+
+/* Set the camera-frame gyro bias subtracted from subsequent samples
+ * (e.g. from vh_bias). Applies to samples pushed after the call. */
+void vh_rot_set_bias(vh_rotcomp *rc, const float bias_c[3]);
 
 /* Mark "now" (a frame capture time) as the new keyframe epoch: resets the
  * accumulated rotation to identity and drops older buffered samples. */

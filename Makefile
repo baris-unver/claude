@@ -7,7 +7,7 @@ CC      ?= cc
 CFLAGS  ?= -std=c11 -O2 -Wall -Wextra -Wconversion -Iinclude
 LDLIBS   = -lm
 
-SRC  = src/vh_fast.c src/vh_pyramid.c src/vh_klt.c src/vh_rotcomp.c src/vh_hold.c
+SRC  = src/vh_fast.c src/vh_pyramid.c src/vh_klt.c src/vh_rotcomp.c src/vh_hold.c src/vh_bias.c
 OBJ  = $(SRC:.c=.o)
 
 build/test_pipeline: tests/test_pipeline.c $(SRC)

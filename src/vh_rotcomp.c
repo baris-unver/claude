@@ -84,10 +84,17 @@ void vh_rot_push(vh_rotcomp *rc, uint64_t t_us, float wx, float wy, float wz)
     vh_gyro_sample *s = &rc->buf[rc->head];
     s->t_us = t_us;
     const float *R = rc->r_cb;
-    s->w[0] = R[0] * wx + R[1] * wy + R[2] * wz;
-    s->w[1] = R[3] * wx + R[4] * wy + R[5] * wz;
-    s->w[2] = R[6] * wx + R[7] * wy + R[8] * wz;
+    s->w[0] = R[0] * wx + R[1] * wy + R[2] * wz - rc->bias_c[0];
+    s->w[1] = R[3] * wx + R[4] * wy + R[5] * wz - rc->bias_c[1];
+    s->w[2] = R[6] * wx + R[7] * wy + R[8] * wz - rc->bias_c[2];
     rc->head = next;
+}
+
+void vh_rot_set_bias(vh_rotcomp *rc, const float bias_c[3])
+{
+    rc->bias_c[0] = bias_c[0];
+    rc->bias_c[1] = bias_c[1];
+    rc->bias_c[2] = bias_c[2];
 }
 
 void vh_rot_rekey(vh_rotcomp *rc, uint64_t t_us)
