@@ -28,6 +28,9 @@ typedef struct {
     vh_gyro_sample buf[VH_GYRO_BUF_LEN];
     uint32_t head, tail;       /* ring buffer: head = write, tail = read */
     float r_cb[9];
+    float last_w[3];           /* most recent integrated rate (camera frame),
+                                  used to extrapolate to frame timestamps that
+                                  fall between gyro samples */
     bool have_time;
 } vh_rotcomp;
 

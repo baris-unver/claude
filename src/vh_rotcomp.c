@@ -120,11 +120,25 @@ void vh_rot_integrate_to(vh_rotcomp *rc, uint64_t t_us)
             rc->q = quat_mul(rc->q, dq);
         }
         rc->q_t_us = s->t_us;
+        rc->last_w[0] = s->w[0];
+        rc->last_w[1] = s->w[1];
+        rc->last_w[2] = s->w[2];
         rc->tail = (rc->tail + 1u) % VH_GYRO_BUF_LEN;
     }
+    if (t_us > rc->q_t_us) {
+        /* Frame timestamp falls between gyro samples: extrapolate with the
+         * last known rate (zero-order hold). Dropping this slice instead
+         * would systematically under-rotate q by up to one IMU period per
+         * frame — a bias correlated with the motion itself, which
+         * accumulates for the lifetime of the keyframe. */
+        const float dt = (float)(t_us - rc->q_t_us) * 1e-6f;
+        const vh_quat dq = quat_from_rotvec(rc->last_w[0] * dt,
+                                            rc->last_w[1] * dt,
+                                            rc->last_w[2] * dt);
+        rc->q = quat_mul(rc->q, dq);
+        rc->q_t_us = t_us;
+    }
     quat_normalize(&rc->q);
-    if (t_us > rc->q_t_us)
-        rc->q_t_us = t_us; /* no sample yet at t; hold rotation constant */
 }
 
 vh_vec3 vh_rot_key_to_cur(const vh_rotcomp *rc, vh_vec3 bearing_key)
