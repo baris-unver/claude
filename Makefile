@@ -23,9 +23,19 @@ build/replay_dump: tools/replay_dcs.c $(SRC)
 	@mkdir -p build
 	$(CC) $(CFLAGS) -DVH_DEBUG_TRACKS -o $@ $^ $(LDLIBS)
 
-.PHONY: test clean
+build/test_real_texture: tests/test_real_texture.c $(SRC)
+	@mkdir -p build
+	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+
+.PHONY: test test-real clean
 test: build/test_pipeline
 	./build/test_pipeline
+
+# Hover-regime tests on real imagery. Needs a preprocessed DCS sequence:
+#   python3 tools/dcs_extract.py <bundle_dir> -o <out.vhr>
+REAL_DATA ?= ../testdata/dcs/processed/easyair_001_forpost_snow_sun_200m_level_straight.vhr
+test-real: build/test_real_texture
+	./build/test_real_texture $(REAL_DATA)
 
 clean:
 	rm -rf build $(OBJ)
