@@ -35,7 +35,14 @@ void vh_gyro(vh_ctx *ctx, uint64_t t_us, float wx, float wy, float wz)
 int vh_set_keyframe(vh_ctx *ctx, const vh_image *img, uint64_t t_us)
 {
     vh_corner corners[VH_MAX_FEATURES];
-    const int n = vh_fast_detect(img, corners);
+    int n = vh_fast_detect(img, corners);
+#if VH_FAST_THRESHOLD_LO < VH_FAST_THRESHOLD
+    /* Low-contrast scene (fog, precipitation): one relaxed retry. Truly
+     * featureless scenes still fail this and the keyframe stays rejected. */
+    if (n < VH_MIN_TRACKED)
+        n = vh_fast_detect_ex(img, corners,
+                              VH_FAST_THRESHOLD_LO, VH_FAST_MIN_SCORE_LO);
+#endif
     if (n < VH_MIN_TRACKED)
         return 0;
 

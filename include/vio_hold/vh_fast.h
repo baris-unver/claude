@@ -19,7 +19,13 @@ typedef struct {
 /*
  * Detect corners in `img`. Writes at most VH_MAX_FEATURES corners (one per
  * grid cell, strongest wins) into `out`. Returns the number written.
+ * Uses VH_FAST_THRESHOLD / VH_FAST_MIN_SCORE.
  */
 int vh_fast_detect(const vh_image *img, vh_corner *out);
+
+/* Same, with runtime threshold / minimum score (for the low-contrast
+ * keyframe retry and host-side experiments). */
+int vh_fast_detect_ex(const vh_image *img, vh_corner *out,
+                      int threshold, int32_t min_score);
 
 #endif /* VH_FAST_H */

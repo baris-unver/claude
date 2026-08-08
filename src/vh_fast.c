@@ -21,9 +21,14 @@ static inline bool has_arc9(uint32_t m16)
 
 int vh_fast_detect(const vh_image *img, vh_corner *out)
 {
+    return vh_fast_detect_ex(img, out, VH_FAST_THRESHOLD, VH_FAST_MIN_SCORE);
+}
+
+int vh_fast_detect_ex(const vh_image *img, vh_corner *out,
+                      int t, int32_t min_score)
+{
     const int w = img->w, h = img->h, stride = img->stride;
     const uint8_t *px = img->data;
-    const int t = VH_FAST_THRESHOLD;
 
     /* Precompute circle offsets in bytes for this stride. */
     int32_t off[16];
@@ -78,7 +83,7 @@ int vh_fast_detect(const vh_image *img, vh_corner *out)
             else
                 continue;
 
-            if (score < VH_FAST_MIN_SCORE)
+            if (score < min_score)
                 continue;
 
             const int cell = cell_row * VH_GRID_COLS + (x * VH_GRID_COLS) / w;

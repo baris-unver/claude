@@ -40,6 +40,18 @@
 #ifndef VH_FAST_MIN_SCORE
 #define VH_FAST_MIN_SCORE 60 /* reject weak corners (sum of arc contrast) */
 #endif
+/* Low-contrast fallback: when detection at the nominal threshold yields
+ * fewer than VH_MIN_TRACKED corners (fog, precipitation, dusk), keyframe
+ * capture retries once at these relaxed settings. Costs ~2x the detect time
+ * only on that already-failed path; recovers scenes with weak texture while
+ * still refusing truly featureless ones (open water, clear sky). Set
+ * VH_FAST_THRESHOLD_LO >= VH_FAST_THRESHOLD to disable the retry. */
+#ifndef VH_FAST_THRESHOLD_LO
+#define VH_FAST_THRESHOLD_LO 10
+#endif
+#ifndef VH_FAST_MIN_SCORE_LO
+#define VH_FAST_MIN_SCORE_LO 30
+#endif
 #ifndef VH_DET_MARGIN
 #define VH_DET_MARGIN 12 /* keep-out border for detection, px */
 #endif
