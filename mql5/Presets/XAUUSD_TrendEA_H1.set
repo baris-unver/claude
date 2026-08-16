@@ -1,0 +1,25 @@
+; XAUUSD_TrendEA default preset — XAUUSD H1
+; Load in MT5 Strategy Tester via Inputs -> Load.
+; Format: Name=Value||start||step||stop||Y/N (Y = include in optimization)
+InpTimeframe=16385
+InpEmaFastPeriod=50||20||10||100||Y
+InpEmaSlowPeriod=200||100||25||300||Y
+InpRsiPeriod=14||14||0||14||N
+InpRsiLongMin=52.0||50||1||60||Y
+InpRsiShortMax=48.0||40||1||50||Y
+InpAtrPeriod=14||14||0||14||N
+InpAtrMin=0.0||0||0||0||N
+InpAllowLongs=true
+InpAllowShorts=true
+InpCloseOnOpposite=true
+InpRiskPercent=1.0||0.5||0.25||2.0||N
+InpSlAtrMult=2.0||1.0||0.25||3.0||Y
+InpTpAtrMult=3.0||1.5||0.5||5.0||Y
+InpTrailAtrMult=0.0||0||0.5||3.0||N
+InpDailyLossLimitPct=0.0
+InpUseSessionFilter=true
+InpSessionStartHour=7||0||1||23||N
+InpSessionEndHour=20||0||1||23||N
+InpMaxSpreadPoints=50
+InpMagicNumber=20260816
+InpTradeComment=XAUUSD_TrendEA
