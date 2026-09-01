@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "geoloc-tr"
+version = "0.1.0"
+description = "City-scale image geo-localization for Türkiye from Mapillary street-level imagery (proxy classification + prototype/aerial retrieval)"
+requires-python = ">=3.10"
+dependencies = [
+  "numpy",
+  "pandas",
+  "pyarrow",
+  "pillow",
+  "requests",
+  "s2sphere",
+  "mapbox-vector-tile",
+  "tqdm",
+  "pyyaml",
+  "torch",
+  "torchvision",
+  "timm",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "ruff"]
+
+[tool.setuptools.packages.find]
+include = ["geoloc_tr*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

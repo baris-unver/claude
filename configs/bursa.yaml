@@ -1,0 +1,31 @@
+# Mapillary geo-localization for bursa. Adjust data.bbox to change the extent (west, south, east, north).
+data:
+  city: bursa
+  root: data
+  include_pano: false
+  min_capture_year: 2015
+  image_max_side: 768
+  min_train_spacing_m: 3.0
+aerial:
+  enabled: true
+  zoom: 18
+  patch_px: 224
+cells:
+  hierarchy_levels: [11, 13, 15, 17]
+  database_level: 18
+  min_images_per_class: 5
+model:
+  backbone: "timm:vit_small_patch14_dinov2.lvd142m"
+  image_size: 224
+  embed_dim: 512
+  freeze_backbone_blocks: 4
+train:
+  epochs: 20
+  batch_size: 128
+  lr: 3.0e-4
+  backbone_lr_mult: 0.1
+  num_workers: 8
+  out_dir: runs/bursa
+retrieval:
+  top_k: 32
+  refine_radius_m: 150
