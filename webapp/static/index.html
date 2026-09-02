@@ -82,6 +82,9 @@
   .pin{width:18px;height:18px;border-radius:50%;border:2px solid #0b0e12;cursor:pointer}
   .pin.pred{background:var(--pred);box-shadow:0 0 0 1px var(--pred),0 0 16px #4da3ffaa}
   .pin.gt{background:var(--gt);box-shadow:0 0 0 1px var(--gt),0 0 16px #3ddc84aa}
+  .maplibregl-ctrl-attrib.maplibregl-compact{background:rgba(15,18,22,.82);border-radius:12px}
+  .maplibregl-ctrl-attrib.maplibregl-compact:not(.maplibregl-compact-show) .maplibregl-ctrl-attrib-inner{display:none}
+  .maplibregl-ctrl-attrib a{color:var(--dim)}
   .maplibregl-popup-content{background:var(--panel);color:var(--ink);border:1px solid var(--line);
                             font:12px/1.4 inherit;padding:6px 9px;border-radius:6px}
   .maplibregl-popup-tip{display:none}
@@ -152,9 +155,19 @@ const VECTOR = new Set(['Dark','Positron','Liberty']);
 let styleName = 'Dark';
 
 const map = new maplibregl.Map({
-  container: 'map', style: STYLES.Dark, center: [32.86, 39.93], zoom: 10.2, attributionControl: true,
+  container: 'map', style: STYLES.Dark, center: [32.86, 39.93], zoom: 10.2,
+  /* Collapsed to a single ⓘ instead of a footer bar. Not removed: OpenStreetMap data is ODbL and
+     Esri's imagery terms both REQUIRE attribution, so compact mode -- the supported, one-tap-to-
+     expand form -- is as far as this can go without breaking the licences. MapLibre itself asks
+     for no credit (BSD), so its name is dropped. */
+  attributionControl: false,
 });
 map.addControl(new maplibregl.NavigationControl({visualizePitch:false}), 'top-left');
+map.addControl(new maplibregl.AttributionControl({compact: true}), 'bottom-right');
+// compact mode renders expanded on first paint; collapse it so only the ⓘ shows until tapped
+const collapseAttrib = () => document.querySelectorAll('.maplibregl-ctrl-attrib')
+  .forEach(el => el.classList.remove('maplibregl-compact-show'));
+map.on('load', collapseAttrib); map.on('styledata', collapseAttrib); setTimeout(collapseAttrib, 400);
 map.addControl(new maplibregl.ScaleControl({maxWidth:120, unit:'metric'}), 'bottom-left');
 
 document.getElementById('styles').innerHTML = Object.keys(STYLES)
