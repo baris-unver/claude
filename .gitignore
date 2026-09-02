@@ -6,3 +6,7 @@ runs/
 *.egg-info/
 .pytest_cache/
 .env
+site/
+webapp.log
+logs_*.txt
+run_rest.sh
