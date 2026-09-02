@@ -13,7 +13,7 @@
     --pred:#4da3ff; --gt:#3ddc84; --cand:#ff5a5a; --warn:#ffb020;
   }
   *{box-sizing:border-box}
-  html,body{height:100%;margin:0}
+  html,body{height:100%;height:100dvh;margin:0}
   body{display:flex;font:14px/1.45 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
        background:var(--bg);color:var(--ink)}
   aside{width:380px;flex:0 0 380px;background:var(--panel);border-right:1px solid var(--line);
@@ -96,6 +96,76 @@
   .maplibregl-popup-content{background:var(--panel);color:var(--ink);border:1px solid var(--line);
                             font:12px/1.4 inherit;padding:6px 9px;border-radius:6px}
   .maplibregl-popup-tip{display:none}
+
+  /* ---------- phones: map on top, controls in a sheet under it ----------
+     The desktop layout is a fixed 380px sidebar, which leaves a phone no map at all. Here the
+     map leads, the panel becomes a short scrollable sheet, and the sample grid turns into a
+     horizontal strip so 48 thumbnails cost one row instead of sixteen. */
+  /* Short and wide (landscape phone, small laptop window): the sidebar is right, just narrower.
+     Stacking here would leave the map ~180px tall. */
+  @media (max-width: 1000px) and (orientation: landscape){
+    /* same single-scroll sheet as portrait: with ~390px of height a pinned footer starves the
+       upload zone to a sliver. Result is ordered under the header so a tap answers immediately. */
+    aside{width:300px;flex:0 0 300px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+    header{order:0;padding:10px 13px}
+    footer{order:1;max-height:none;border-top:0;padding:10px 13px}
+    .scroll{order:2;overflow:visible;flex:0 0 auto;padding:2px 13px 12px}
+    .lic{order:3}
+    header h1{font-size:13.5px}
+    .badge{display:none}
+    footer h2{margin-top:0}
+    table td{padding:2px 0;font-size:12.5px}
+    .grid{display:flex;overflow-x:auto;gap:6px;-webkit-overflow-scrolling:touch}
+    .grid .thumb{flex:0 0 96px}
+    #samplenote{display:none}
+    #brand{width:44px;height:44px}
+    #styles{top:18px;right:64px}
+    #styles button{padding:6px 9px;font-size:11.5px}
+  }
+
+  @media (max-width: 1000px) and (orientation: portrait){
+    body{flex-direction:column}
+    #wrap{order:1;flex:1 1 auto;min-height:46vh}
+    /* One scroll region, not two: the desktop panel scrolls its middle and pins the result, which
+       on a phone starved the middle to zero height. Here the whole sheet scrolls, and the result
+       is ordered directly under the map so a tap shows its answer without scrolling. */
+    aside{order:2;width:100%;flex:0 0 auto;max-height:48vh;overflow-y:auto;
+          -webkit-overflow-scrolling:touch;border-right:0;border-top:1px solid var(--line)}
+    header{order:0;padding:10px 14px}
+    footer{order:1;max-height:none;padding:10px 14px;border-top:0}
+    .scroll{order:2;overflow:visible;flex:0 0 auto;padding:2px 14px 12px}
+    .lic{order:3}
+    header h1{font-size:14px}
+    header p{font-size:11px}
+    .badge{display:none}        /* the provenance line belongs on desktop, not a 390px sheet */
+    h2{margin:12px 0 7px}
+    footer h2{margin-top:0}
+    table td{padding:2px 0;font-size:12.5px}
+    .big{font-size:19px}
+    .rrow{gap:10px}
+    #qwrap{width:88px;flex:0 0 88px}
+    /* 48 thumbnails as a swipeable strip instead of sixteen stacked rows */
+    .grid{display:flex;overflow-x:auto;gap:6px;padding-bottom:4px;
+          scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch}
+    .grid .thumb{flex:0 0 104px;scroll-snap-align:start}
+    .drop{padding:13px}
+    #samplenote{display:none}          /* keep the phone text short */
+    /* the 5-button switcher cannot share a 390px row with the mark: move it left, let it scroll */
+    #brand{width:42px;height:42px;top:8px;right:8px}
+    #brand img{width:36px;height:36px}
+    #styles{top:8px;right:auto;left:8px;max-width:calc(100% - 64px);overflow-x:auto;
+            -webkit-overflow-scrolling:touch;padding:3px}
+    #styles button{padding:7px 10px;flex:0 0 auto;font-size:11.5px}
+    /* pinch-zoom replaces the +/- buttons, which collided with the switcher anyway */
+    .maplibregl-ctrl-top-left{display:none}
+    .lic{padding:9px 14px}
+    #lb img{max-width:96vw;max-height:74vh}
+  }
+  /* touch has no hover, so the enlarge affordance must always be visible */
+  @media (hover: none){
+    .zoom{opacity:1}
+    .thumb img{opacity:1}
+  }
   /* lightbox */
   #lb{position:fixed;inset:0;background:rgba(6,8,11,.94);display:none;z-index:9999;
       align-items:center;justify-content:center;flex-direction:column;cursor:zoom-out}
@@ -115,7 +185,7 @@
   </header>
   <div class="scroll">
     <h2>Kendi fotoğrafınız</h2>
-    <div class="drop" id="drop">Sokak fotoğrafını buraya bırakın veya seçmek için tıklayın<br>
+    <div class="drop" id="drop">Fotoğraf seçmek için dokunun veya buraya sürükleyin<br>
       <span style="font-size:11px">Ankara olmalı, yoksa sonuç anlamsız · tarayıcınızda çalışır</span></div>
     <input type="file" id="file" accept="image/*" hidden>
     <div id="loadbox" hidden><div class="bar"><i id="barfill"></i></div>
@@ -125,7 +195,7 @@
 
     <h2>Hazır örnekler</h2>
     <div class="grid" id="grid"></div>
-    <p class="note">48 test fotoğrafı, hataların <b>tamamından</b> seçildi — sadece başarılı olanlar değil.
+    <p class="note" id="samplenote">48 test fotoğrafı, hataların <b>tamamından</b> seçildi — sadece başarılı olanlar değil.
       Yeşil = <b>test_seen</b> (modelin gördüğü sokaklar), turuncu = <b>test_unseen</b> (hiç
       eğitim verisi olmayan ~1 km bloklar). Etiket, ölçülen hatadır. Konum için tıklayın,
       büyütmek için ⤢.</p>
