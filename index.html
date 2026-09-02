@@ -61,6 +61,9 @@
   .note{font-size:11.5px;color:var(--dim);line-height:1.5;margin-top:10px}
   .err{color:var(--cand)}
   .badge{font-size:11px;color:var(--dim);margin-top:6px}
+  .bar{height:5px;background:#0d1015;border:1px solid var(--line);border-radius:4px;
+       overflow:hidden;margin-top:10px}
+  .bar i{display:block;height:100%;width:0;background:var(--pred);transition:width .18s}
   .badge a{color:var(--pred)}
   pre{background:#0d1015;border:1px solid var(--line);border-radius:6px;padding:9px 10px;
       font-size:11px;overflow-x:auto;color:#b9c6d6;margin:8px 0 0}
@@ -103,7 +106,7 @@
   <header>
     <h1>geoloc-tr — where was this photo taken?</h1>
     <p id="meta">loading…</p>
-    <p class="badge">static demo · predictions precomputed · <a href="https://github.com/baris-unver/claude/tree/claude/geoloc-turkey-mapillary-qgfq5b" target="_blank" rel="noopener">source</a></p>
+    <p class="badge">static demo · sample answers precomputed, uploads run in your browser · <a href="https://github.com/baris-unver/claude/tree/claude/geoloc-turkey-mapillary-qgfq5b" target="_blank" rel="noopener">source</a></p>
   </header>
   <div class="scroll">
     <h2>Pre-selected queries</h2>
@@ -113,14 +116,15 @@
       amber = <b>test_unseen</b> (a ~1 km block with no ground training data at all).
       The label is the error recorded during evaluation. Click to localise, ⤢ to enlarge.</p>
 
-    <h2>Uploading your own photo</h2>
-    <p class="note" style="margin-top:0">GitHub Pages serves static files only, so there is no model
-      running behind this page — every answer here was computed in advance. To localise your own
-      photo, run the app locally:</p>
-    <pre>git clone -b claude/geoloc-turkey-mapillary-qgfq5b \
-  https://github.com/baris-unver/claude.git
-pip install -e ".[dev]" &amp;&amp; python webapp/app.py</pre>
-  </div>
+    <h2>Or use your own</h2>
+    <div class="drop" id="drop">Drop a street-level photo here, or click to choose<br>
+      <span style="font-size:11px">Ankara, or the answer means nothing · runs in your browser</span></div>
+    <input type="file" id="file" accept="image/*" hidden>
+    <div id="loadbox" hidden><div class="bar"><i id="barfill"></i></div>
+      <p class="note" id="loadmsg" style="margin-top:6px"></p></div>
+    <p class="note" id="uploadnote">First upload downloads the model — <b>108 MB</b>, once, then
+      cached by the browser. Everything runs locally; the photo never leaves your machine.</p>
+      </div>
   <footer>
     <h2>Result</h2>
     <div class="rrow">
@@ -135,7 +139,8 @@ pip install -e ".[dev]" &amp;&amp; python webapp/app.py</pre>
 <div id="wrap"><div id="map"></div><div id="styles"></div></div>
 <div id="lb"><span id="lbx">&times;</span><img id="lbimg" alt="query, full size"><div id="lbcap"></div></div>
 
-<script>
+<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.min.js"></script>
+<script type="module">
 /* ---------- basemaps ----------
    OpenFreeMap serves MapLibre vector styles with no key and no rate limit, rendered by the same
    engine Mapbox GL uses -- crisp labels, smooth zoom, real styling. (CARTO's raster CDN now
@@ -278,6 +283,68 @@ fetch('data.json').then(r=>r.json()).then(D=>{
 });
 
 document.getElementById('qimg').onclick = ()=>{ if(current) enlarge(current.src, current.cap); };
+
+/* ---------- upload: the model runs here, in the page ---------- */
+import * as infer from './infer.js';
+let ready = null;
+const box = document.getElementById('loadbox'), fill = document.getElementById('barfill'),
+      msg = document.getElementById('loadmsg'), note = document.getElementById('uploadnote');
+
+function ensureModel(){
+  if(ready) return ready;
+  box.hidden = false; note.hidden = true;
+  ready = infer.load((label, got, total, frac)=>{
+    fill.style.width = `${(frac*100).toFixed(1)}%`;
+    msg.textContent = label === 'ready' ? 'model ready — it stays cached for next time'
+      : `${label}: ${(got/1048576).toFixed(1)} / ${(total/1048576).toFixed(1)} MB`;
+  }).then(m=>{ setTimeout(()=>{ box.hidden = true; note.hidden = false;
+                 note.innerHTML = 'Model loaded and cached. Uploads run entirely in this page.'; }, 1500);
+               return m; })
+    .catch(e=>{ msg.textContent = 'model failed to load: ' + e; ready = null; throw e; });
+  return ready;
+}
+
+const drop = document.getElementById('drop'), file = document.getElementById('file');
+drop.onclick = ()=>file.click();
+drop.ondragover = e=>{e.preventDefault(); drop.classList.add('over')};
+drop.ondragleave = ()=>drop.classList.remove('over');
+drop.ondrop = e=>{e.preventDefault(); drop.classList.remove('over'); upload(e.dataTransfer.files[0])};
+file.onchange = ()=>upload(file.files[0]);
+
+async function upload(f){
+  if(!f) return;
+  document.querySelectorAll('.thumb').forEach(t=>t.classList.remove('sel'));
+  const url = URL.createObjectURL(f);
+  current = {src:url, cap:f.name};
+  document.getElementById('qimg').src = url;
+  document.getElementById('qwrap').style.display = 'block';
+  document.getElementById('out').innerHTML = '<p class="note">loading model…</p>';
+  try{
+    await ensureModel();
+    document.getElementById('out').innerHTML = '<p class="note">localising…</p>';
+    const img = new Image(); img.src = url; await img.decode();
+    const t0 = performance.now();
+    const r = infer.localize(await infer.embed(img));
+    renderUpload(f.name, r, performance.now() - t0);
+  }catch(e){
+    document.getElementById('out').innerHTML = `<p class="note err">${e}</p>`;
+  }
+}
+
+function renderUpload(name, r, ms){
+  last = {lat:r.lat, lon:r.lon, candidates:r.candidates};
+  drawOverlays(last);
+  document.getElementById('out').innerHTML = `<table>
+    <tr><td>source</td><td>${name}</td></tr>
+    <tr><td>predicted</td><td>${r.lat.toFixed(6)}, ${r.lon.toFixed(6)}</td></tr>
+    <tr><td>top cell score</td><td>${r.top_score.toFixed(3)}</td></tr>
+    <tr><td>ground truth</td><td>unknown — your photo</td></tr>
+    <tr><td>ran in</td><td>${(ms/1000).toFixed(1)} s, in this browser</td></tr>
+    </table>
+    <p class="note">This used the in-page pipeline: prototypes + aerial + refine. The
+    pre-selected queries above show the <b>full</b> method, which adds an image-refine step whose
+    97,834-image index is too large to ship — worth about 1 point of R@100m.</p>`;
+}
 
 function render(d){
   last = d;
