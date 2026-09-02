@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>geoloc-tr — Ankara</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <style>
   :root{
     --bg:#0f1216; --panel:#171b21; --line:#262c35; --ink:#e7ecf2; --dim:#8b97a7;
@@ -35,28 +35,59 @@
   .thumb .sp{position:absolute;top:3px;left:3px;font-size:9px;padding:1px 4px;border-radius:3px;
              background:rgba(0,0,0,.7)}
   .sp.unseen{color:var(--warn)} .sp.seen{color:var(--gt)}
+  .zoom{position:absolute;top:2px;right:2px;width:20px;height:20px;border-radius:4px;
+        background:rgba(0,0,0,.62);color:#fff;font-size:12px;line-height:20px;text-align:center;
+        opacity:0;transition:opacity .12s}
+  .thumb:hover .zoom{opacity:1}
+  .zoom:hover{background:var(--pred);color:#04121f}
   .drop{border:1.5px dashed var(--line);border-radius:8px;padding:16px;text-align:center;
         color:var(--dim);cursor:pointer;font-size:13px}
   .drop:hover,.drop.over{border-color:var(--pred);color:var(--ink)}
-  #qimg{border-radius:6px;display:none;border:1px solid var(--line)}
+  footer{border-top:1px solid var(--line);padding:12px 16px;background:#12161c;flex:0 0 auto;
+         max-height:46vh;overflow-y:auto}
+  footer h2{margin:0 0 8px}
+  .rrow{display:flex;gap:10px;align-items:flex-start}
+  #qwrap{position:relative;width:120px;flex:0 0 120px;display:none}
+  #qimg{width:100%;border-radius:6px;border:1px solid var(--line);display:block;cursor:zoom-in}
+  #qwrap .hint{position:absolute;inset:auto 0 0 0;padding:2px 4px;font-size:10px;text-align:center;
+               background:rgba(0,0,0,.66);border-radius:0 0 5px 5px;color:#cfd8e3}
+  .rrow #out{flex:1;min-width:0}
   table{width:100%;border-collapse:collapse;font-size:12.5px}
   td{padding:4px 0;vertical-align:top}
   td:first-child{color:var(--dim);width:44%}
   .big{font-size:20px;font-weight:650}
   .k{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;
      vertical-align:middle}
-  footer{border-top:1px solid var(--line);padding:12px 16px;background:#12161c;flex:0 0 auto;
-         max-height:46vh;overflow-y:auto}
-  footer h2{margin:0 0 8px}
-  .rrow{display:flex;gap:10px;align-items:flex-start}
-  .rrow #qimg{width:120px;flex:0 0 120px;margin:0}
-  .rrow #out{flex:1;min-width:0}
-  #map{flex:1}
   .note{font-size:11.5px;color:var(--dim);line-height:1.5;margin-top:10px}
-  button{font:inherit;background:var(--pred);color:#04121f;border:0;border-radius:6px;
-         padding:8px 12px;cursor:pointer;font-weight:600}
-  button[disabled]{opacity:.5;cursor:default}
   .err{color:var(--cand)}
+  #wrap{flex:1;position:relative}
+  #map{position:absolute;inset:0}
+  /* style switcher */
+  #styles{position:absolute;top:12px;right:12px;z-index:5;display:flex;gap:4px;
+          background:rgba(15,18,22,.86);padding:4px;border-radius:8px;
+          border:1px solid var(--line);backdrop-filter:blur(6px)}
+  #styles button{font:12px/1 inherit;background:transparent;color:var(--dim);border:0;
+                 padding:7px 10px;border-radius:5px;cursor:pointer}
+  #styles button:hover{color:var(--ink)}
+  #styles button.on{background:var(--pred);color:#04121f;font-weight:600}
+  .fallback{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);z-index:6;
+            background:rgba(15,18,22,.92);border:1px solid var(--line);color:var(--dim);
+            padding:7px 12px;border-radius:8px;font-size:12px}
+  /* map marker pins */
+  .pin{width:18px;height:18px;border-radius:50%;border:2px solid #0b0e12;cursor:pointer}
+  .pin.pred{background:var(--pred);box-shadow:0 0 0 1px var(--pred),0 0 16px #4da3ffaa}
+  .pin.gt{background:var(--gt);box-shadow:0 0 0 1px var(--gt),0 0 16px #3ddc84aa}
+  .maplibregl-popup-content{background:var(--panel);color:var(--ink);border:1px solid var(--line);
+                            font:12px/1.4 inherit;padding:6px 9px;border-radius:6px}
+  .maplibregl-popup-tip{display:none}
+  /* lightbox */
+  #lb{position:fixed;inset:0;background:rgba(6,8,11,.94);display:none;z-index:9999;
+      align-items:center;justify-content:center;flex-direction:column;cursor:zoom-out}
+  #lb.on{display:flex}
+  #lb img{max-width:94vw;max-height:86vh;border-radius:8px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+  #lbcap{margin-top:12px;font-size:13px;color:var(--dim);text-align:center}
+  #lbx{position:absolute;top:14px;right:20px;font-size:26px;color:var(--dim);cursor:pointer;line-height:1}
+  #lbx:hover{color:var(--ink)}
 </style>
 </head>
 <body>
@@ -71,37 +102,132 @@
     <p class="note">Twelve held-out queries spanning the <b>error quantiles</b> of the full method —
       not a best-of reel. Green = <b>test_seen</b> (another drive down a trained street),
       amber = <b>test_unseen</b> (a ~1 km block with no ground training data at all).
-      The label is the error recorded during evaluation.</p>
+      The label is the error recorded during evaluation. Click to localise, ⤢ to enlarge.</p>
 
     <h2>Or use your own</h2>
     <div class="drop" id="drop">Drop a street-level photo here, or click to choose<br>
       <span style="font-size:11px">it should be somewhere in Ankara for the answer to mean anything</span></div>
     <input type="file" id="file" accept="image/*" hidden>
-
   </div>
-  <footer id="result">
+  <footer>
     <h2>Result</h2>
     <div class="rrow">
-      <img id="qimg" alt="query">
+      <div id="qwrap"><img id="qimg" alt="query"><span class="hint">click to enlarge</span></div>
       <div id="out"><p class="note">Pick a query above, or drop in your own photo.</p></div>
     </div>
   </footer>
 </aside>
-<div id="map"></div>
+<div id="wrap"><div id="map"></div><div id="styles"></div></div>
+<div id="lb"><span id="lbx">&times;</span><img id="lbimg" alt="query, full size"><div id="lbcap"></div></div>
 
 <script>
-const map = L.map('map').setView([39.93, 32.86], 11);
-L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-  {maxZoom:19, attribution:'&copy; OpenStreetMap'}).addTo(map);
-const layer = L.featureGroup().addTo(map);
+/* ---------- basemaps ----------
+   OpenFreeMap serves MapLibre vector styles with no key and no rate limit, rendered by the same
+   engine Mapbox GL uses -- crisp labels, smooth zoom, real styling. (CARTO's raster CDN now
+   watermarks unkeyed tiles, so it is not an option.) Satellite is Esri World Imagery, the same
+   source the model's aerial branch was trained on. */
+const raster = (tiles, attribution) => ({version:8,
+  sources:{r:{type:'raster', tiles:[tiles], tileSize:256, attribution}},
+  layers:[{id:'r', type:'raster', source:'r'}]});
+const ESRI = n => `https://server.arcgisonline.com/ArcGIS/rest/services/${n}/MapServer/tile/{z}/{y}/{x}`;
+const STYLES = {
+  Dark:      'https://tiles.openfreemap.org/styles/dark',
+  Positron:  'https://tiles.openfreemap.org/styles/positron',
+  Liberty:   'https://tiles.openfreemap.org/styles/liberty',
+  Canvas:    raster(ESRI('Canvas/World_Dark_Gray_Base'), 'Canvas &copy; Esri'),
+  Satellite: raster(ESRI('World_Imagery'),
+                    'Imagery &copy; Esri — the aerial branch\u2019s own source'),
+};
+const VECTOR = new Set(['Dark','Positron','Liberty']);
+let styleName = 'Dark';
 
-const dot = (c,r) => L.divIcon({className:'', iconSize:[r*2,r*2], iconAnchor:[r,r],
-  html:`<div style="width:${r*2}px;height:${r*2}px;border-radius:50%;background:${c};
-        border:2px solid #0b0e12;box-shadow:0 0 0 1px ${c}"></div>`});
+const map = new maplibregl.Map({
+  container: 'map', style: STYLES.Dark, center: [32.86, 39.93], zoom: 10.2, attributionControl: true,
+});
+map.addControl(new maplibregl.NavigationControl({visualizePitch:false}), 'top-left');
+map.addControl(new maplibregl.ScaleControl({maxWidth:120, unit:'metric'}), 'bottom-left');
 
+document.getElementById('styles').innerHTML = Object.keys(STYLES)
+  .map(k=>`<button data-s="${k}" class="${k===styleName?'on':''}">${k}</button>`).join('');
+function setStyleTo(name){
+  styleName = name;
+  document.querySelectorAll('#styles button')
+    .forEach(x=>x.classList.toggle('on', x.dataset.s === name));
+  map.setStyle(STYLES[name]);               // markers survive setStyle; sources/layers do not
+}
+document.querySelectorAll('#styles button').forEach(b=>b.onclick=()=>setStyleTo(b.dataset.s));
+const wanted = new URLSearchParams(location.search).get('style');
+if(wanted && STYLES[wanted]) setStyleTo(wanted);
+map.on('style.load', ()=>{ if(last) drawOverlays(last); });
+
+/* Basemap note: the vector styles (Dark / Positron / Liberty, OpenFreeMap + MapLibre — the same
+   engine Mapbox GL uses) need a hardware WebGL rasteriser. On software GL they download fine and
+   paint nothing. Canvas and Satellite are raster and always render, so they are the one-click
+   escape hatch; ?style=Canvas picks one on load. */
+
+/* ---------- overlays ---------- */
+let markers = [], last = null;
+
+function clearOverlays(){
+  markers.forEach(m=>m.remove()); markers = [];
+  for(const id of ['cands-glow','cands','link']) if(map.getLayer(id)) map.removeLayer(id);
+  for(const id of ['cands','link']) if(map.getSource(id)) map.removeSource(id);
+}
+
+function pin(cls, lngLat, label){
+  const el = document.createElement('div'); el.className = 'pin ' + cls;
+  const m = new maplibregl.Marker({element: el}).setLngLat(lngLat)
+    .setPopup(new maplibregl.Popup({offset:14, closeButton:false}).setText(label))
+    .addTo(map);
+  el.addEventListener('mouseenter', ()=>m.togglePopup());
+  el.addEventListener('mouseleave', ()=>m.togglePopup());
+  markers.push(m); return m;
+}
+
+function drawOverlays(d){
+  clearOverlays();
+  map.addSource('cands', {type:'geojson', data:{type:'FeatureCollection', features:
+    d.candidates.map(c=>({type:'Feature', properties:{w:c.weight, score:c.score},
+                          geometry:{type:'Point', coordinates:[c.lon, c.lat]}}))}});
+  map.addLayer({id:'cands-glow', type:'circle', source:'cands', paint:{
+    'circle-radius':['+', 8, ['*', 22, ['get','w']]],
+    'circle-color':'#ff5a5a', 'circle-opacity':['*', 0.12, ['+', 0.4, ['get','w']]],
+    'circle-blur':0.85}});
+  map.addLayer({id:'cands', type:'circle', source:'cands', paint:{
+    'circle-radius':['+', 3, ['*', 9, ['get','w']]],
+    'circle-color':'#ff5a5a',
+    'circle-opacity':['+', 0.25, ['*', 0.55, ['get','w']]],
+    'circle-stroke-width':1, 'circle-stroke-color':'#ff8a8a',
+    'circle-stroke-opacity':['+', 0.25, ['*', 0.55, ['get','w']]]}});
+  map.on('mouseenter','cands',()=>map.getCanvas().style.cursor='crosshair');
+  map.on('mouseleave','cands',()=>map.getCanvas().style.cursor='');
+
+  const b = new maplibregl.LngLatBounds();
+  d.candidates.forEach(c=>b.extend([c.lon, c.lat]));
+  pin('pred', [d.lon, d.lat], 'prediction'); b.extend([d.lon, d.lat]);
+
+  if(d.gt_lat != null){
+    pin('gt', [d.gt_lon, d.gt_lat], 'ground truth'); b.extend([d.gt_lon, d.gt_lat]);
+    map.addSource('link', {type:'geojson', data:{type:'Feature', geometry:{type:'LineString',
+      coordinates:[[d.lon,d.lat],[d.gt_lon,d.gt_lat]]}}});
+    map.addLayer({id:'link', type:'line', source:'link',
+      paint:{'line-color':'#9fb0c4','line-width':2,'line-dasharray':[2,2.5],'line-opacity':.85}});
+  }
+  map.fitBounds(b, {padding:110, maxZoom:16.5, duration:700});
+}
+
+/* ---------- ui ---------- */
 const fmt = m => m == null ? '—' : (m < 1000 ? m.toFixed(0)+' m' : (m/1000).toFixed(2)+' km');
+const lb = document.getElementById('lb');
+function enlarge(src, caption){
+  document.getElementById('lbimg').src = src;
+  document.getElementById('lbcap').textContent = caption || '';
+  lb.classList.add('on');
+}
+lb.onclick = ()=>lb.classList.remove('on');
+document.addEventListener('keydown', e=>{ if(e.key === 'Escape') lb.classList.remove('on'); });
 
-let samples = [];
+let samples = [], current = null;
 
 fetch('/api/meta').then(r=>r.json()).then(m=>{
   document.getElementById('meta').textContent =
@@ -114,26 +240,35 @@ fetch('/api/samples').then(r=>r.json()).then(list=>{
     <div class="thumb" data-i="${i}" title="${s.split} · recorded error ${fmt(s.recorded_err_m)}">
       <img src="/api/image/${s.id}" loading="lazy">
       <span class="sp ${s.split==='test_seen'?'seen':'unseen'}">${s.split==='test_seen'?'seen':'unseen'}</span>
+      <span class="zoom" data-zoom="${i}" title="enlarge">⤢</span>
       <b>${fmt(s.recorded_err_m)}</b>
     </div>`).join('');
+
   const pick = el => {
     document.querySelectorAll('.thumb').forEach(t=>t.classList.remove('sel'));
     el.classList.add('sel');
     const s = samples[+el.dataset.i];
-    show(document.querySelector(`.thumb[data-i="${el.dataset.i}"] img`).src);
+    current = {src:`/api/image/${s.id}`,
+               cap:`${s.split} · ${s.id} · recorded error ${fmt(s.recorded_err_m)}`};
+    showQuery(current.src);
     run({method:'POST', headers:{'Content-Type':'application/json'},
          body: JSON.stringify({sample_id: s.id})});
   };
   document.querySelectorAll('.thumb').forEach(el=>el.onclick=()=>pick(el));
-  // ?q=<n> deep-links a specific query, so a result view can be linked or screenshotted directly
+  document.querySelectorAll('.zoom').forEach(z=>z.onclick=e=>{
+    e.stopPropagation();                      // ⤢ enlarges without triggering a localisation
+    const s = samples[+z.dataset.zoom];
+    enlarge(`/api/image/${s.id}`, `${s.split} · ${s.id} · recorded error ${fmt(s.recorded_err_m)}`);
+  });
   const q = new URLSearchParams(location.search).get('q');
-  if(q !== null){
-    const el = document.querySelector(`.thumb[data-i="${Number(q)}"]`);
-    if(el) pick(el);
-  }
+  if(q !== null){ const el = document.querySelector(`.thumb[data-i="${Number(q)}"]`); if(el) pick(el); }
 });
 
-function show(src){ const q=document.getElementById('qimg'); q.src=src; q.style.display='block'; }
+function showQuery(src){
+  document.getElementById('qimg').src = src;
+  document.getElementById('qwrap').style.display = 'block';
+}
+document.getElementById('qimg').onclick = ()=>{ if(current) enlarge(current.src, current.cap); };
 
 const drop = document.getElementById('drop'), file = document.getElementById('file');
 drop.onclick = ()=>file.click();
@@ -145,7 +280,9 @@ file.onchange = ()=>upload(file.files[0]);
 function upload(f){
   if(!f) return;
   document.querySelectorAll('.thumb').forEach(t=>t.classList.remove('sel'));
-  show(URL.createObjectURL(f));
+  const url = URL.createObjectURL(f);
+  current = {src:url, cap:f.name};
+  showQuery(url);
   const fd = new FormData(); fd.append('file', f);
   run({method:'POST', body: fd});
 }
@@ -153,46 +290,29 @@ function upload(f){
 function run(opts){
   document.getElementById('out').innerHTML = '<p class="note">localising…</p>';
   fetch('/api/predict', opts).then(r=>r.json()).then(render)
-    .catch(e=>document.getElementById('out').innerHTML =
-      `<p class="note err">request failed: ${e}</p>`);
+    .catch(e=>document.getElementById('out').innerHTML = `<p class="note err">request failed: ${e}</p>`);
 }
 
 function render(d){
-  if(d.error){ document.getElementById('out').innerHTML =
-    `<p class="note err">${d.error}</p>`; return; }
-  layer.clearLayers();
-
-  d.candidates.forEach(c=>L.circleMarker([c.lat,c.lon],
-    {radius: 3 + 9*c.weight, color:'var(--cand)', weight:1,
-     fillColor:'#ff5a5a', fillOpacity: 0.15 + 0.5*c.weight, opacity: 0.35 + 0.5*c.weight})
-    .bindTooltip(`candidate cell · score ${c.score.toFixed(3)}`).addTo(layer));
-
-  L.marker([d.lat,d.lon],{icon:dot('#4da3ff',9),zIndexOffset:1000})
-    .bindTooltip('prediction',{permanent:false}).addTo(layer);
-
+  if(d.error){ document.getElementById('out').innerHTML = `<p class="note err">${d.error}</p>`; return; }
+  last = d;
+  drawOverlays(d);
   let rows = `<table>
     <tr><td>source</td><td>${d.source}</td></tr>
     <tr><td>predicted</td><td>${d.lat.toFixed(6)}, ${d.lon.toFixed(6)}</td></tr>
     <tr><td>top cell score</td><td>${d.top_score.toFixed(3)}</td></tr>`;
-
   if(d.gt_lat != null){
-    L.marker([d.gt_lat,d.gt_lon],{icon:dot('#3ddc84',9),zIndexOffset:900})
-      .bindTooltip('ground truth').addTo(layer);
-    L.polyline([[d.lat,d.lon],[d.gt_lat,d.gt_lon]],
-      {color:'#8b97a7',weight:2,dashArray:'5,6'}).addTo(layer);
     rows += `<tr><td>ground truth</td><td>${d.gt_lat.toFixed(6)}, ${d.gt_lon.toFixed(6)}</td></tr>
       <tr><td>error</td><td class="big" style="color:${d.error_m<100?'#3ddc84':d.error_m<1000?'#ffb020':'#ff5a5a'}">${fmt(d.error_m)}</td></tr>`;
   } else {
     rows += `<tr><td>ground truth</td><td>unknown (uploaded image)</td></tr>`;
   }
-  rows += '</table>';
-  rows += `<p class="note">
+  rows += `</table><p class="note">
     <span class="k" style="background:#4da3ff"></span>prediction
     <span class="k" style="background:#3ddc84;margin-left:10px"></span>ground truth
     <span class="k" style="background:#ff5a5a;margin-left:10px"></span>top-20 candidate cells
     (size = retrieval weight)</p>`;
   document.getElementById('out').innerHTML = rows;
-  map.fitBounds(layer.getBounds().pad(0.35), {maxZoom: 16});
 }
 </script>
 </body>

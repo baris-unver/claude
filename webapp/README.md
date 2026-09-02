@@ -15,8 +15,24 @@ on this city is ~1 km and a best-of reel would misrepresent it. Re-run it after 
 prediction and the retrieval score but no error. It should be inside the trained city bbox for the
 answer to mean anything.
 
-**Map.** Blue = prediction, green = ground truth, dashed line between them, red circles = the top-20
-candidate cells sized by retrieval weight. `?q=<0-11>` deep-links a pre-selected query.
+**Enlarging.** Click the query image in the Result panel, or the ⤢ badge on any thumbnail, for a
+full-size lightbox (Esc or click to close). ⤢ enlarges without triggering a localisation.
+
+**Map.** MapLibre GL. Blue = prediction, green = ground truth, dashed line between them, red circles
+= the top-20 candidate cells, sized and glowing by retrieval weight. `?q=<0-11>` deep-links a query,
+`?style=<name>` a basemap.
+
+**Basemaps.** `Dark` / `Positron` / `Liberty` are OpenFreeMap **vector** styles — MapLibre GL is the
+same engine Mapbox GL uses, and OpenFreeMap needs no key and no account. `Canvas` (Esri Dark Gray)
+and `Satellite` (Esri World Imagery, the source the aerial branch was trained on) are **raster**.
+
+> Vector styles need a hardware WebGL rasteriser. Under software GL they download correctly and
+> paint nothing — verified here: a four-line control page with nothing but MapLibre and the
+> OpenFreeMap style is blank too, while the identical page with a raster style renders fine. On a
+> normal GPU browser the vector styles are the better-looking option; if yours comes up blank,
+> `Canvas` and `Satellite` always render.
+
+CARTO's basemap CDN is **not** usable — it now watermarks unkeyed tiles `API KEY REQUIRED`.
 
 **Correctness check:** live predictions reproduce the recorded evaluation errors exactly
 (10.0/10.0 m, 1840.0/1840.0 m, 48.7/48.7 m on three spot checks), i.e. the app's inference path is
