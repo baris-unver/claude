@@ -57,7 +57,11 @@ class DataConfig:
     thumb_field: str = "thumb_1024_url"
     min_train_spacing_m: float = 3.0  # thin dense sequences so consecutive frames are not near-duplicates
     max_images: int | None = None
-    download_workers: int = 8
+    download_workers: int = 8  # graph.mapillary.com concurrency; >=32 gets mass 403s from the API
+    # Thumbnails are served by a different host (scontent.*.fbcdn.net) with a much higher tolerance:
+    # measured 29 img/s at 8 workers, 112 img/s at 24, and 81 img/s at 48 (saturation), all with zero
+    # failures. Keeping one knob for both phases means the Graph API's limit caps the whole download.
+    thumb_workers: int = 24
     graph_batch: int = 50  # ids per Graph API batch request
 
 

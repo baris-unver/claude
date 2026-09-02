@@ -39,7 +39,7 @@ def main():
 
     out = download_thumbnails(meta, cfg.images_dir, thumb_field=cfg.data.thumb_field, max_side=cfg.data.image_max_side,
                               include_pano=cfg.data.include_pano, n_pano_crops=cfg.data.pano_crops,
-                              workers=cfg.data.download_workers)
+                              workers=cfg.data.thumb_workers)
     if "compass_angle" in out and "yaw_offset" in out:
         out["heading"] = (out["compass_angle"].astype(float).fillna(0) + out["yaw_offset"]) % 360
     out["sequence"] = out["sequence"].astype(str)
