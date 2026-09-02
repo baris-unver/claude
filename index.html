@@ -21,6 +21,7 @@
   header{padding:14px 16px;border-bottom:1px solid var(--line)}
   header h1{margin:0;font-size:15px;letter-spacing:.2px}
   header p{margin:4px 0 0;font-size:12px;color:var(--dim)}
+  #uploadsec{flex:0 0 auto;padding:14px 16px 0}
   .scroll{overflow-y:auto;padding:14px 16px;flex:1}
   h2{font-size:11px;text-transform:uppercase;letter-spacing:.9px;color:var(--dim);
      margin:18px 0 8px;font-weight:600}
@@ -41,9 +42,19 @@
         opacity:0;transition:opacity .12s}
   .thumb:hover .zoom{opacity:1}
   .zoom:hover{background:var(--pred);color:#04121f}
-  .drop{border:1.5px dashed var(--line);border-radius:8px;padding:16px;text-align:center;
-        color:var(--dim);cursor:pointer;font-size:13px}
-  .drop:hover,.drop.over{border-color:var(--pred);color:var(--ink)}
+  /* This is the one thing on the page a visitor is meant to DO, so it reads as a filled
+     primary button rather than another muted dashed box. The dashed frame stays because it is
+     also a drop target. */
+  .drop{border:2px dashed rgba(77,163,255,.40);border-radius:12px;padding:15px 14px 13px;
+        text-align:center;cursor:pointer;
+        background:linear-gradient(180deg,rgba(77,163,255,.11),rgba(77,163,255,.03));
+        transition:border-color .15s, background .15s}
+  .drop:hover,.drop.over{border-color:var(--pred);background:rgba(77,163,255,.17)}
+  .drop .cta{display:inline-flex;align-items:center;gap:8px;background:var(--pred);color:#04121f;
+             font-weight:700;font-size:14.5px;padding:10px 17px;border-radius:9px;
+             box-shadow:0 3px 14px rgba(77,163,255,.34)}
+  .drop:hover .cta,.drop.over .cta{background:#6bb4ff}
+  .drop .sub{display:block;margin-top:10px;font-size:11.5px;color:var(--dim);line-height:1.45}
   footer{border-top:1px solid var(--line);padding:12px 16px;background:#12161c;flex:0 0 auto;
          max-height:46vh;overflow-y:auto}
   footer h2{margin:0 0 8px}
@@ -93,6 +104,9 @@
   .pin{width:18px;height:18px;border-radius:50%;border:2px solid #0b0e12;cursor:pointer}
   .pin.pred{background:var(--pred);box-shadow:0 0 0 1px var(--pred),0 0 16px #4da3ffaa}
   .pin.gt{background:var(--gt);box-shadow:0 0 0 1px var(--gt),0 0 16px #3ddc84aa}
+  .maplibregl-ctrl-attrib.maplibregl-compact{background:rgba(15,18,22,.82);border-radius:12px}
+  .maplibregl-ctrl-attrib.maplibregl-compact:not(.maplibregl-compact-show) .maplibregl-ctrl-attrib-inner{display:none}
+  .maplibregl-ctrl-attrib a{color:var(--dim)}
   .maplibregl-popup-content{background:var(--panel);color:var(--ink);border:1px solid var(--line);
                             font:12px/1.4 inherit;padding:6px 9px;border-radius:6px}
   .maplibregl-popup-tip{display:none}
@@ -108,9 +122,10 @@
        upload zone to a sliver. Result is ordered under the header so a tap answers immediately. */
     aside{width:300px;flex:0 0 300px;overflow-y:auto;-webkit-overflow-scrolling:touch}
     header{order:0;padding:10px 13px}
-    footer{order:1;max-height:none;border-top:0;padding:10px 13px}
-    .scroll{order:2;overflow:visible;flex:0 0 auto;padding:2px 13px 12px}
-    .lic{order:3}
+    #uploadsec{order:1;padding:12px 13px 0}
+    footer{order:2;max-height:none;border-top:0;padding:10px 13px}
+    .scroll{order:3;overflow:visible;flex:0 0 auto;padding:2px 13px 12px}
+    .lic{order:4}
     header h1{font-size:13.5px}
     .badge{display:none}
     footer h2{margin-top:0}
@@ -132,9 +147,10 @@
     aside{order:2;width:100%;flex:0 0 auto;max-height:48vh;overflow-y:auto;
           -webkit-overflow-scrolling:touch;border-right:0;border-top:1px solid var(--line)}
     header{order:0;padding:10px 14px}
-    footer{order:1;max-height:none;padding:10px 14px;border-top:0}
-    .scroll{order:2;overflow:visible;flex:0 0 auto;padding:2px 14px 12px}
-    .lic{order:3}
+    #uploadsec{order:1;padding:12px 14px 0}
+    footer{order:2;max-height:none;padding:10px 14px;border-top:0}
+    .scroll{order:3;overflow:visible;flex:0 0 auto;padding:2px 14px 12px}
+    .lic{order:4}
     header h1{font-size:14px}
     header p{font-size:11px}
     .badge{display:none}        /* the provenance line belongs on desktop, not a 390px sheet */
@@ -148,7 +164,8 @@
     .grid{display:flex;overflow-x:auto;gap:6px;padding-bottom:4px;
           scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch}
     .grid .thumb{flex:0 0 104px;scroll-snap-align:start}
-    .drop{padding:13px}
+    .drop{padding:14px 12px 12px}
+    .drop .cta{font-size:15px;padding:12px 20px}   /* thumb-sized tap target */
     #samplenote{display:none}          /* keep the phone text short */
     /* the 5-button switcher cannot share a 390px row with the mark: move it left, let it scroll */
     #brand{width:42px;height:42px;top:8px;right:8px}
@@ -183,16 +200,20 @@
     <p id="meta">yükleniyor…</p>
     <p class="badge">statik demo · örnekler önceden hesaplandı, yüklemeler tarayıcınızda çalışır · <a href="https://github.com/baris-unver/claude/tree/claude/geoloc-turkey-mapillary-qgfq5b" target="_blank" rel="noopener">kaynak</a></p>
   </header>
-  <div class="scroll">
+  <section id="uploadsec">
     <h2>Kendi fotoğrafınız</h2>
-    <div class="drop" id="drop">Fotoğraf seçmek için dokunun veya buraya sürükleyin<br>
-      <span style="font-size:11px">Ankara olmalı, yoksa sonuç anlamsız · tarayıcınızda çalışır</span></div>
+    <div class="drop" id="drop">
+      <span class="cta"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> Fotoğraf seç</span>
+      <span class="sub">veya buraya sürükleyin<br>Ankara'da çekilmiş olmalı · tarayıcınızda çalışır</span>
+    </div>
     <input type="file" id="file" accept="image/*" hidden>
     <div id="loadbox" hidden><div class="bar"><i id="barfill"></i></div>
       <p class="note" id="loadmsg" style="margin-top:6px"></p></div>
     <p class="note" id="uploadnote">İlk yüklemede model indirilir — <b>108 MB</b>, bir kez. Sonra tarayıcıda saklanır.
       Her şey cihazınızda çalışır; fotoğraf hiçbir yere gönderilmez.</p>
 
+  </section>
+  <div class="scroll">
     <h2>Hazır örnekler</h2>
     <div class="grid" id="grid"></div>
     <p class="note" id="samplenote">48 test fotoğrafı, hataların <b>tamamından</b> seçildi — sadece başarılı olanlar değil.
@@ -243,9 +264,19 @@ const VECTOR = new Set(['Dark','Positron','Liberty']);
 let styleName = 'Dark';
 
 const map = new maplibregl.Map({
-  container: 'map', style: STYLES.Dark, center: [32.86, 39.93], zoom: 10.2, attributionControl: true,
+  container: 'map', style: STYLES.Dark, center: [32.86, 39.93], zoom: 10.2,
+  /* Collapsed to a single ⓘ instead of a footer bar. Not removed: OpenStreetMap data is ODbL and
+     Esri's imagery terms both REQUIRE attribution, so compact mode -- the supported, one-tap-to-
+     expand form -- is as far as this can go without breaking the licences. MapLibre itself asks
+     for no credit (BSD), so its name is dropped. */
+  attributionControl: false,
 });
 map.addControl(new maplibregl.NavigationControl({visualizePitch:false}), 'top-left');
+map.addControl(new maplibregl.AttributionControl({compact: true}), 'bottom-right');
+// compact mode renders expanded on first paint; collapse it so only the ⓘ shows until tapped
+const collapseAttrib = () => document.querySelectorAll('.maplibregl-ctrl-attrib')
+  .forEach(el => el.classList.remove('maplibregl-compact-show'));
+map.on('load', collapseAttrib); map.on('styledata', collapseAttrib); setTimeout(collapseAttrib, 400);
 map.addControl(new maplibregl.ScaleControl({maxWidth:120, unit:'metric'}), 'bottom-left');
 
 document.getElementById('styles').innerHTML = Object.keys(STYLES)
