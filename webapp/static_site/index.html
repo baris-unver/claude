@@ -23,7 +23,7 @@
   .scroll{overflow-y:auto;padding:14px 16px;flex:1}
   h2{font-size:11px;text-transform:uppercase;letter-spacing:.9px;color:var(--dim);
      margin:18px 0 8px;font-weight:600}
-  h2:first-child{margin-top:0}
+  .scroll h2:first-child{margin-top:0}
   .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
   .thumb{position:relative;border:2px solid transparent;border-radius:6px;overflow:hidden;
          cursor:pointer;background:#0b0e12;aspect-ratio:4/3}
@@ -109,13 +109,6 @@
     <p class="badge">static demo · sample answers precomputed, uploads run in your browser · <a href="https://github.com/baris-unver/claude/tree/claude/geoloc-turkey-mapillary-qgfq5b" target="_blank" rel="noopener">source</a></p>
   </header>
   <div class="scroll">
-    <h2>Pre-selected queries</h2>
-    <div class="grid" id="grid"></div>
-    <p class="note">Twelve held-out queries spanning the <b>error quantiles</b> of the full method —
-      not a best-of reel. Green = <b>test_seen</b> (another drive down a trained street),
-      amber = <b>test_unseen</b> (a ~1 km block with no ground training data at all).
-      The label is the error recorded during evaluation. Click to localise, ⤢ to enlarge.</p>
-
     <h2>Or use your own</h2>
     <div class="drop" id="drop">Drop a street-level photo here, or click to choose<br>
       <span style="font-size:11px">Ankara, or the answer means nothing · runs in your browser</span></div>
@@ -124,6 +117,14 @@
       <p class="note" id="loadmsg" style="margin-top:6px"></p></div>
     <p class="note" id="uploadnote">First upload downloads the model — <b>108 MB</b>, once, then
       cached by the browser. Everything runs locally; the photo never leaves your machine.</p>
+
+    <h2>Pre-selected queries</h2>
+    <div class="grid" id="grid"></div>
+    <p class="note">Twelve held-out queries spanning the <b>error quantiles</b> of the full method —
+      not a best-of reel. Green = <b>test_seen</b> (another drive down a trained street),
+      amber = <b>test_unseen</b> (a ~1 km block with no ground training data at all).
+      The label is the error recorded during evaluation. Click to localise, ⤢ to enlarge.</p>
+
       </div>
   <footer>
     <h2>Result</h2>
@@ -146,15 +147,18 @@
    engine Mapbox GL uses -- crisp labels, smooth zoom, real styling. (CARTO's raster CDN now
    watermarks unkeyed tiles, so it is not an option.) Satellite is Esri World Imagery, the same
    source the model's aerial branch was trained on. */
-const raster = (tiles, attribution) => ({version:8,
-  sources:{r:{type:'raster', tiles:[tiles], tileSize:256, attribution}},
+/* maxzoom matters: Esri's Canvas tiles stop at z16 and the server returns a "Map data not yet
+   available" image beyond it, which reads as a broken map. Declaring the cap makes MapLibre
+   overzoom the last real tile instead of asking for one that does not exist. */
+const raster = (tiles, attribution, maxzoom=19) => ({version:8,
+  sources:{r:{type:'raster', tiles:[tiles], tileSize:256, maxzoom, attribution}},
   layers:[{id:'r', type:'raster', source:'r'}]});
 const ESRI = n => `https://server.arcgisonline.com/ArcGIS/rest/services/${n}/MapServer/tile/{z}/{y}/{x}`;
 const STYLES = {
   Dark:      'https://tiles.openfreemap.org/styles/dark',
   Positron:  'https://tiles.openfreemap.org/styles/positron',
   Liberty:   'https://tiles.openfreemap.org/styles/liberty',
-  Canvas:    raster(ESRI('Canvas/World_Dark_Gray_Base'), 'Canvas &copy; Esri'),
+  Canvas:    raster(ESRI('Canvas/World_Dark_Gray_Base'), 'Canvas &copy; Esri', 16),
   Satellite: raster(ESRI('World_Imagery'),
                     'Imagery &copy; Esri — the aerial branch\u2019s own source'),
 };

@@ -126,15 +126,18 @@
    engine Mapbox GL uses -- crisp labels, smooth zoom, real styling. (CARTO's raster CDN now
    watermarks unkeyed tiles, so it is not an option.) Satellite is Esri World Imagery, the same
    source the model's aerial branch was trained on. */
-const raster = (tiles, attribution) => ({version:8,
-  sources:{r:{type:'raster', tiles:[tiles], tileSize:256, attribution}},
+/* maxzoom matters: Esri's Canvas tiles stop at z16 and the server returns a "Map data not yet
+   available" image beyond it, which reads as a broken map. Declaring the cap makes MapLibre
+   overzoom the last real tile instead of asking for one that does not exist. */
+const raster = (tiles, attribution, maxzoom=19) => ({version:8,
+  sources:{r:{type:'raster', tiles:[tiles], tileSize:256, maxzoom, attribution}},
   layers:[{id:'r', type:'raster', source:'r'}]});
 const ESRI = n => `https://server.arcgisonline.com/ArcGIS/rest/services/${n}/MapServer/tile/{z}/{y}/{x}`;
 const STYLES = {
   Dark:      'https://tiles.openfreemap.org/styles/dark',
   Positron:  'https://tiles.openfreemap.org/styles/positron',
   Liberty:   'https://tiles.openfreemap.org/styles/liberty',
-  Canvas:    raster(ESRI('Canvas/World_Dark_Gray_Base'), 'Canvas &copy; Esri'),
+  Canvas:    raster(ESRI('Canvas/World_Dark_Gray_Base'), 'Canvas &copy; Esri', 16),
   Satellite: raster(ESRI('World_Imagery'),
                     'Imagery &copy; Esri — the aerial branch\u2019s own source'),
 };
