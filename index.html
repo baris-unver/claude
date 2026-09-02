@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="tr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -109,38 +109,38 @@
 <body>
 <aside>
   <header>
-    <h1>geoloc-tr — where was this photo taken?</h1>
-    <p id="meta">loading…</p>
-    <p class="badge">static demo · sample answers precomputed, uploads run in your browser · <a href="https://github.com/baris-unver/claude/tree/claude/geoloc-turkey-mapillary-qgfq5b" target="_blank" rel="noopener">source</a></p>
+    <h1>geoloc-tr — bu fotoğraf nerede çekildi?</h1>
+    <p id="meta">yükleniyor…</p>
+    <p class="badge">statik demo · örnekler önceden hesaplandı, yüklemeler tarayıcınızda çalışır · <a href="https://github.com/baris-unver/claude/tree/claude/geoloc-turkey-mapillary-qgfq5b" target="_blank" rel="noopener">kaynak</a></p>
   </header>
   <div class="scroll">
-    <h2>Or use your own</h2>
-    <div class="drop" id="drop">Drop a street-level photo here, or click to choose<br>
-      <span style="font-size:11px">Ankara, or the answer means nothing · runs in your browser</span></div>
+    <h2>Kendi fotoğrafınız</h2>
+    <div class="drop" id="drop">Sokak fotoğrafını buraya bırakın veya seçmek için tıklayın<br>
+      <span style="font-size:11px">Ankara olmalı, yoksa sonuç anlamsız · tarayıcınızda çalışır</span></div>
     <input type="file" id="file" accept="image/*" hidden>
     <div id="loadbox" hidden><div class="bar"><i id="barfill"></i></div>
       <p class="note" id="loadmsg" style="margin-top:6px"></p></div>
-    <p class="note" id="uploadnote">First upload downloads the model — <b>108 MB</b>, once, then
-      cached by the browser. Everything runs locally; the photo never leaves your machine.</p>
+    <p class="note" id="uploadnote">İlk yüklemede model indirilir — <b>108 MB</b>, bir kez. Sonra tarayıcıda saklanır.
+      Her şey cihazınızda çalışır; fotoğraf hiçbir yere gönderilmez.</p>
 
-    <h2>Pre-selected queries</h2>
+    <h2>Hazır örnekler</h2>
     <div class="grid" id="grid"></div>
-    <p class="note">Twelve held-out queries spanning the <b>error quantiles</b> of the full method —
-      not a best-of reel. Green = <b>test_seen</b> (another drive down a trained street),
-      amber = <b>test_unseen</b> (a ~1 km block with no ground training data at all).
-      The label is the error recorded during evaluation. Click to localise, ⤢ to enlarge.</p>
+    <p class="note">48 test fotoğrafı, hataların <b>tamamından</b> seçildi — sadece başarılı olanlar değil.
+      Yeşil = <b>test_seen</b> (modelin gördüğü sokaklar), turuncu = <b>test_unseen</b> (hiç
+      eğitim verisi olmayan ~1 km bloklar). Etiket, ölçülen hatadır. Konum için tıklayın,
+      büyütmek için ⤢.</p>
 
       </div>
   <footer>
-    <h2>Result</h2>
+    <h2>Sonuç</h2>
     <div class="rrow">
-      <div id="qwrap"><img id="qimg" alt="query"><span class="hint">click to enlarge</span></div>
-      <div id="out"><p class="note">Pick a query above, or drop in your own photo.</p></div>
+      <div id="qwrap"><img id="qimg" alt="query"><span class="hint">büyütmek için tıklayın</span></div>
+      <div id="out"><p class="note">Yukarıdan bir örnek seçin veya kendi fotoğrafınızı bırakın.</p></div>
     </div>
   </footer>
-  <div class="lic">Photographs © their Mapillary contributors, licensed
-    <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>.
-    Each query links to its source image and author.</div>
+  <div class="lic">Fotoğraflar © Mapillary katkıcılarına aittir,
+    <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a> ile lisanslıdır.
+    Her örnek, kaynak görüntüsüne ve sahibine bağlanır.</div>
 </aside>
 <div id="wrap"><div id="map"></div>
   <div id="brand" title="TURK Ai"><img src="TurkAI-FavIcon-512x512-1.png" alt="TURK Ai"></div>
@@ -260,14 +260,14 @@ document.addEventListener('keydown', e=>{ if(e.key === 'Escape') lb.classList.re
 
 let Q = [], current = null;
 const mlyUrl = id => `https://www.mapillary.com/app/?pKey=${id}&focus=photo`;
-const cap = d => `${d.split} · ${fmt(d.error_m)} · photo by ${d.creator || 'a Mapillary contributor'} (CC BY-SA 4.0)`;
+const cap = d => `${d.split} · ${fmt(d.error_m)} · fotoğraf: ${d.creator || 'Mapillary katkıcısı'} (CC BY-SA 4.0)`;
 
 fetch('data.json').then(r=>r.json()).then(D=>{
   Q = D.queries;
   document.getElementById('meta').textContent =
-    `${D.cells.toLocaleString()} cells at S2 level ${D.database_level} · aerial α=${D.alpha} · ${Q.length} held-out queries`;
+    `${D.cells.toLocaleString('tr-TR')} cell · S2 level ${D.database_level} · aerial α=${D.alpha} · ${Q.length} test fotoğrafı`;
   document.getElementById('grid').innerHTML = Q.map((d,i)=>`
-    <div class="thumb" data-i="${i}" title="${d.split} · error ${fmt(d.error_m)}">
+    <div class="thumb" data-i="${i}" title="${d.split} · hata ${fmt(d.error_m)}">
       <img src="${d.img}" loading="lazy" alt="street-level photo">
       <span class="sp ${d.split==='test_seen'?'seen':'unseen'}">${d.split==='test_seen'?'seen':'unseen'}</span>
       <span class="zoom" data-zoom="${i}" title="enlarge">⤢</span>
@@ -306,12 +306,12 @@ function ensureModel(){
   box.hidden = false; note.hidden = true;
   ready = infer.load((label, got, total, frac)=>{
     fill.style.width = `${(frac*100).toFixed(1)}%`;
-    msg.textContent = label === 'ready' ? 'model ready — it stays cached for next time'
+    msg.textContent = label === 'ready' ? 'model hazır — sonraki sefer için saklandı'
       : `${label}: ${(got/1048576).toFixed(1)} / ${(total/1048576).toFixed(1)} MB`;
   }).then(m=>{ setTimeout(()=>{ box.hidden = true; note.hidden = false;
-                 note.innerHTML = 'Model loaded and cached. Uploads run entirely in this page.'; }, 1500);
+                 note.innerHTML = 'Model yüklendi ve saklandı. Yüklemeler tamamen bu sayfada çalışır.'; }, 1500);
                return m; })
-    .catch(e=>{ msg.textContent = 'model failed to load: ' + e; ready = null; throw e; });
+    .catch(e=>{ msg.textContent = 'model yüklenemedi: ' + e; ready = null; throw e; });
   return ready;
 }
 
@@ -329,10 +329,10 @@ async function upload(f){
   current = {src:url, cap:f.name};
   document.getElementById('qimg').src = url;
   document.getElementById('qwrap').style.display = 'block';
-  document.getElementById('out').innerHTML = '<p class="note">loading model…</p>';
+  document.getElementById('out').innerHTML = '<p class="note">model yükleniyor…</p>';
   try{
     await ensureModel();
-    document.getElementById('out').innerHTML = '<p class="note">localising…</p>';
+    document.getElementById('out').innerHTML = '<p class="note">konum bulunuyor…</p>';
     const img = new Image(); img.src = url; await img.decode();
     const t0 = performance.now();
     const r = infer.localize(await infer.embed(img));
@@ -346,15 +346,16 @@ function renderUpload(name, r, ms){
   last = {lat:r.lat, lon:r.lon, candidates:r.candidates};
   drawOverlays(last);
   document.getElementById('out').innerHTML = `<table>
-    <tr><td>source</td><td>${name}</td></tr>
-    <tr><td>predicted</td><td>${r.lat.toFixed(6)}, ${r.lon.toFixed(6)}</td></tr>
+    <tr><td>dosya</td><td>${name}</td></tr>
+    <tr><td>tahmin</td><td>${r.lat.toFixed(6)}, ${r.lon.toFixed(6)}</td></tr>
     <tr><td>top cell score</td><td>${r.top_score.toFixed(3)}</td></tr>
-    <tr><td>ground truth</td><td>unknown — your photo</td></tr>
-    <tr><td>ran in</td><td>${(ms/1000).toFixed(1)} s, in this browser</td></tr>
+    <tr><td>ground truth</td><td>bilinmiyor — sizin fotoğrafınız</td></tr>
+    <tr><td>süre</td><td>${(ms/1000).toFixed(1)} sn, bu tarayıcıda</td></tr>
     </table>
-    <p class="note">This used the in-page pipeline: prototypes + aerial + refine. The
-    pre-selected queries above show the <b>full</b> method, which adds an image-refine step whose
-    97,834-image index is too large to ship — worth about 1 point of R@100m.</p>`;
+    <p class="note">Bu sonuç sayfa içinde çalışan <b>prototypes + aerial + refine</b> ile
+    hesaplandı. Yukarıdaki hazır örnekler <b>full</b> yöntemi gösterir; onun image-refine adımı
+    97.834 görüntülük bir index gerektirdiği için siteye konulamadı — fark yaklaşık 1 puan
+    R@100m.</p>`;
 }
 
 function render(d){
@@ -362,19 +363,19 @@ function render(d){
   drawOverlays(d);
   document.getElementById('out').innerHTML = `<table>
     <tr><td>split</td><td>${d.split}</td></tr>
-    <tr><td>predicted</td><td>${d.lat.toFixed(6)}, ${d.lon.toFixed(6)}</td></tr>
+    <tr><td>tahmin</td><td>${d.lat.toFixed(6)}, ${d.lon.toFixed(6)}</td></tr>
     <tr><td>ground truth</td><td>${d.gt_lat.toFixed(6)}, ${d.gt_lon.toFixed(6)}</td></tr>
     <tr><td>top cell score</td><td>${d.top_score.toFixed(3)}</td></tr>
-    <tr><td>error</td><td class="big" style="color:${d.error_m<100?'#3ddc84':d.error_m<1000?'#ffb020':'#ff5a5a'}">${fmt(d.error_m)}</td></tr>
+    <tr><td>hata</td><td class="big" style="color:${d.error_m<100?'#3ddc84':d.error_m<1000?'#ffb020':'#ff5a5a'}">${fmt(d.error_m)}</td></tr>
     </table>
-    <p class="note credit">photo by
-      <a href="https://www.mapillary.com/app/user/${encodeURIComponent(d.creator||'')}" target="_blank" rel="noopener">${d.creator || 'a Mapillary contributor'}</a>
-      · <a href="${mlyUrl(d.id)}" target="_blank" rel="noopener">source image</a> · CC BY-SA 4.0</p>
+    <p class="note credit">fotoğraf:
+      <a href="https://www.mapillary.com/app/user/${encodeURIComponent(d.creator||'')}" target="_blank" rel="noopener">${d.creator || 'Mapillary katkıcısı'}</a>
+      · <a href="${mlyUrl(d.id)}" target="_blank" rel="noopener">kaynak görüntü</a> · CC BY-SA 4.0</p>
     <p class="note">
-    <span class="k" style="background:#4da3ff"></span>prediction
+    <span class="k" style="background:#4da3ff"></span>tahmin
     <span class="k" style="background:#3ddc84;margin-left:10px"></span>ground truth
-    <span class="k" style="background:#ff5a5a;margin-left:10px"></span>top-20 candidate cells
-    (size = retrieval weight)</p>`;
+    <span class="k" style="background:#ff5a5a;margin-left:10px"></span>top-20 candidate cell
+    (boyut = retrieval weight)</p>`;
 }
 </script>
 </body>
