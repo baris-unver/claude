@@ -45,15 +45,20 @@
   /* This is the one thing on the page a visitor is meant to DO, so it reads as a filled
      primary button rather than another muted dashed box. The dashed frame stays because it is
      also a drop target. */
-  .drop{border:2px dashed rgba(77,163,255,.40);border-radius:12px;padding:15px 14px 13px;
+  /* The brand red (#FF0000 sampled from the logo, softened so it does not read as an error) --
+     it is the only saturated warm colour in the UI, so the eye lands on it first, and it ties the
+     primary action to the mark in the corner. Blue was already spoken for by the prediction pin. */
+  .drop{border:2px dashed rgba(255,59,48,.42);border-radius:12px;padding:15px 14px 13px;
         text-align:center;cursor:pointer;
-        background:linear-gradient(180deg,rgba(77,163,255,.11),rgba(77,163,255,.03));
+        background:linear-gradient(180deg,rgba(255,59,48,.12),rgba(255,59,48,.03));
         transition:border-color .15s, background .15s}
-  .drop:hover,.drop.over{border-color:var(--pred);background:rgba(77,163,255,.17)}
-  .drop .cta{display:inline-flex;align-items:center;gap:8px;background:var(--pred);color:#04121f;
+  .drop:hover,.drop.over{border-color:#ff3b30;background:rgba(255,59,48,.19)}
+  .drop .cta{display:inline-flex;align-items:center;gap:8px;color:#fff;
+             background:linear-gradient(180deg,#ff3b30,#dc0000);
              font-weight:700;font-size:14.5px;padding:10px 17px;border-radius:9px;
-             box-shadow:0 3px 14px rgba(77,163,255,.34)}
-  .drop:hover .cta,.drop.over .cta{background:#6bb4ff}
+             box-shadow:0 4px 18px rgba(255,0,0,.42)}
+  .drop:hover .cta,.drop.over .cta{background:linear-gradient(180deg,#ff5a50,#f10000);
+             box-shadow:0 5px 22px rgba(255,0,0,.55)}
   .drop .sub{display:block;margin-top:10px;font-size:11.5px;color:var(--dim);line-height:1.45}
   footer{border-top:1px solid var(--line);padding:12px 16px;background:#12161c;flex:0 0 auto;
          max-height:46vh;overflow-y:auto}

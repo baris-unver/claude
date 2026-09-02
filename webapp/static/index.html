@@ -41,9 +41,20 @@
         opacity:0;transition:opacity .12s}
   .thumb:hover .zoom{opacity:1}
   .zoom:hover{background:var(--pred);color:#04121f}
-  .drop{border:1.5px dashed var(--line);border-radius:8px;padding:16px;text-align:center;
-        color:var(--dim);cursor:pointer;font-size:13px}
-  .drop:hover,.drop.over{border-color:var(--pred);color:var(--ink)}
+  /* brand red (#FF0000 from the logo, softened): the only saturated warm colour here, so the
+     primary action is what the eye finds first. Blue is taken by the prediction pin. */
+  .drop{border:2px dashed rgba(255,59,48,.42);border-radius:12px;padding:15px 14px 13px;
+        text-align:center;cursor:pointer;
+        background:linear-gradient(180deg,rgba(255,59,48,.12),rgba(255,59,48,.03));
+        transition:border-color .15s, background .15s}
+  .drop:hover,.drop.over{border-color:#ff3b30;background:rgba(255,59,48,.19)}
+  .drop .cta{display:inline-flex;align-items:center;gap:8px;color:#fff;
+             background:linear-gradient(180deg,#ff3b30,#dc0000);
+             font-weight:700;font-size:14.5px;padding:10px 17px;border-radius:9px;
+             box-shadow:0 4px 18px rgba(255,0,0,.42)}
+  .drop:hover .cta,.drop.over .cta{background:linear-gradient(180deg,#ff5a50,#f10000);
+             box-shadow:0 5px 22px rgba(255,0,0,.55)}
+  .drop .sub{display:block;margin-top:10px;font-size:11.5px;color:var(--dim);line-height:1.45}
   footer{border-top:1px solid var(--line);padding:12px 16px;background:#12161c;flex:0 0 auto;
          max-height:46vh;overflow-y:auto}
   footer h2{margin:0 0 8px}
@@ -113,8 +124,10 @@
       The label is the error recorded during evaluation. Click to localise, ⤢ to enlarge.</p>
 
     <h2>Or use your own</h2>
-    <div class="drop" id="drop">Drop a street-level photo here, or click to choose<br>
-      <span style="font-size:11px">it should be somewhere in Ankara for the answer to mean anything</span></div>
+    <div class="drop" id="drop">
+      <span class="cta"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> Choose a photo</span>
+      <span class="sub">or drop one here<br>it should be somewhere in Ankara for the answer to mean anything</span>
+    </div>
     <input type="file" id="file" accept="image/*" hidden>
   </div>
   <footer>
