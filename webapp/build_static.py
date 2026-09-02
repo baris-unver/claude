@@ -117,6 +117,9 @@ def main():
         })
         print(f"  {r['split']:12s} {recs[-1]['error_m']:9.1f} m  {user or '(unknown)'}")
 
+    for f in (Path(__file__).parent / "static_site").iterdir():   # page + browser inference module
+        shutil.copyfile(f, out / f.name)
+
     results = json.loads((cfg.out_dir / "results.json").read_text())
     json.dump({"city": cfg.data.city, "cells": int(db.size),
                "database_level": cfg.cells.database_level, "alpha": alpha,

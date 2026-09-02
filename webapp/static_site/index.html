@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>geoloc-tr — Ankara</title>
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<style>
+  :root{
+    --bg:#0f1216; --panel:#171b21; --line:#262c35; --ink:#e7ecf2; --dim:#8b97a7;
+    --pred:#4da3ff; --gt:#3ddc84; --cand:#ff5a5a; --warn:#ffb020;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{display:flex;font:14px/1.45 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+       background:var(--bg);color:var(--ink)}
+  aside{width:380px;flex:0 0 380px;background:var(--panel);border-right:1px solid var(--line);
+        display:flex;flex-direction:column;overflow:hidden}
+  header{padding:14px 16px;border-bottom:1px solid var(--line)}
+  header h1{margin:0;font-size:15px;letter-spacing:.2px}
+  header p{margin:4px 0 0;font-size:12px;color:var(--dim)}
+  .scroll{overflow-y:auto;padding:14px 16px;flex:1}
+  h2{font-size:11px;text-transform:uppercase;letter-spacing:.9px;color:var(--dim);
+     margin:18px 0 8px;font-weight:600}
+  h2:first-child{margin-top:0}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  .thumb{position:relative;border:2px solid transparent;border-radius:6px;overflow:hidden;
+         cursor:pointer;background:#0b0e12;aspect-ratio:4/3}
+  .thumb img{width:100%;height:100%;object-fit:cover;display:block;opacity:.85}
+  .thumb:hover img{opacity:1}
+  .thumb.sel{border-color:var(--pred)}
+  .thumb b{position:absolute;left:0;right:0;bottom:0;padding:2px 4px;font-size:10px;
+           font-weight:500;background:rgba(0,0,0,.66);color:#fff}
+  .thumb .sp{position:absolute;top:3px;left:3px;font-size:9px;padding:1px 4px;border-radius:3px;
+             background:rgba(0,0,0,.7)}
+  .sp.unseen{color:var(--warn)} .sp.seen{color:var(--gt)}
+  .zoom{position:absolute;top:2px;right:2px;width:20px;height:20px;border-radius:4px;
+        background:rgba(0,0,0,.62);color:#fff;font-size:12px;line-height:20px;text-align:center;
+        opacity:0;transition:opacity .12s}
+  .thumb:hover .zoom{opacity:1}
+  .zoom:hover{background:var(--pred);color:#04121f}
+  .drop{border:1.5px dashed var(--line);border-radius:8px;padding:16px;text-align:center;
+        color:var(--dim);cursor:pointer;font-size:13px}
+  .drop:hover,.drop.over{border-color:var(--pred);color:var(--ink)}
+  footer{border-top:1px solid var(--line);padding:12px 16px;background:#12161c;flex:0 0 auto;
+         max-height:46vh;overflow-y:auto}
+  footer h2{margin:0 0 8px}
+  .rrow{display:flex;gap:10px;align-items:flex-start}
+  #qwrap{position:relative;width:120px;flex:0 0 120px;display:none}
+  #qimg{width:100%;border-radius:6px;border:1px solid var(--line);display:block;cursor:zoom-in}
+  #qwrap .hint{position:absolute;inset:auto 0 0 0;padding:2px 4px;font-size:10px;text-align:center;
+               background:rgba(0,0,0,.66);border-radius:0 0 5px 5px;color:#cfd8e3}
+  .rrow #out{flex:1;min-width:0}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  td{padding:4px 0;vertical-align:top}
+  td:first-child{color:var(--dim);width:44%}
+  .big{font-size:20px;font-weight:650}
+  .k{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;
+     vertical-align:middle}
+  .note{font-size:11.5px;color:var(--dim);line-height:1.5;margin-top:10px}
+  .err{color:var(--cand)}
+  .badge{font-size:11px;color:var(--dim);margin-top:6px}
+  .bar{height:5px;background:#0d1015;border:1px solid var(--line);border-radius:4px;
+       overflow:hidden;margin-top:10px}
+  .bar i{display:block;height:100%;width:0;background:var(--pred);transition:width .18s}
+  .badge a{color:var(--pred)}
+  pre{background:#0d1015;border:1px solid var(--line);border-radius:6px;padding:9px 10px;
+      font-size:11px;overflow-x:auto;color:#b9c6d6;margin:8px 0 0}
+  .lic{padding:10px 16px;border-top:1px solid var(--line);font-size:11px;color:var(--dim);
+       line-height:1.5;flex:0 0 auto}
+  .lic a{color:var(--pred)}
+  .credit a{color:var(--dim)}
+  #wrap{flex:1;position:relative}
+  #map{position:absolute;inset:0}
+  /* style switcher */
+  #styles{position:absolute;top:12px;right:12px;z-index:5;display:flex;gap:4px;
+          background:rgba(15,18,22,.86);padding:4px;border-radius:8px;
+          border:1px solid var(--line);backdrop-filter:blur(6px)}
+  #styles button{font:12px/1 inherit;background:transparent;color:var(--dim);border:0;
+                 padding:7px 10px;border-radius:5px;cursor:pointer}
+  #styles button:hover{color:var(--ink)}
+  #styles button.on{background:var(--pred);color:#04121f;font-weight:600}
+  .fallback{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);z-index:6;
+            background:rgba(15,18,22,.92);border:1px solid var(--line);color:var(--dim);
+            padding:7px 12px;border-radius:8px;font-size:12px}
+  /* map marker pins */
+  .pin{width:18px;height:18px;border-radius:50%;border:2px solid #0b0e12;cursor:pointer}
+  .pin.pred{background:var(--pred);box-shadow:0 0 0 1px var(--pred),0 0 16px #4da3ffaa}
+  .pin.gt{background:var(--gt);box-shadow:0 0 0 1px var(--gt),0 0 16px #3ddc84aa}
+  .maplibregl-popup-content{background:var(--panel);color:var(--ink);border:1px solid var(--line);
+                            font:12px/1.4 inherit;padding:6px 9px;border-radius:6px}
+  .maplibregl-popup-tip{display:none}
+  /* lightbox */
+  #lb{position:fixed;inset:0;background:rgba(6,8,11,.94);display:none;z-index:9999;
+      align-items:center;justify-content:center;flex-direction:column;cursor:zoom-out}
+  #lb.on{display:flex}
+  #lb img{max-width:94vw;max-height:86vh;border-radius:8px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+  #lbcap{margin-top:12px;font-size:13px;color:var(--dim);text-align:center}
+  #lbx{position:absolute;top:14px;right:20px;font-size:26px;color:var(--dim);cursor:pointer;line-height:1}
+  #lbx:hover{color:var(--ink)}
+</style>
+</head>
+<body>
+<aside>
+  <header>
+    <h1>geoloc-tr — where was this photo taken?</h1>
+    <p id="meta">loading…</p>
+    <p class="badge">static demo · sample answers precomputed, uploads run in your browser · <a href="https://github.com/baris-unver/claude/tree/claude/geoloc-turkey-mapillary-qgfq5b" target="_blank" rel="noopener">source</a></p>
+  </header>
+  <div class="scroll">
+    <h2>Pre-selected queries</h2>
+    <div class="grid" id="grid"></div>
+    <p class="note">Twelve held-out queries spanning the <b>error quantiles</b> of the full method —
+      not a best-of reel. Green = <b>test_seen</b> (another drive down a trained street),
+      amber = <b>test_unseen</b> (a ~1 km block with no ground training data at all).
+      The label is the error recorded during evaluation. Click to localise, ⤢ to enlarge.</p>
+
+    <h2>Or use your own</h2>
+    <div class="drop" id="drop">Drop a street-level photo here, or click to choose<br>
+      <span style="font-size:11px">Ankara, or the answer means nothing · runs in your browser</span></div>
+    <input type="file" id="file" accept="image/*" hidden>
+    <div id="loadbox" hidden><div class="bar"><i id="barfill"></i></div>
+      <p class="note" id="loadmsg" style="margin-top:6px"></p></div>
+    <p class="note" id="uploadnote">First upload downloads the model — <b>108 MB</b>, once, then
+      cached by the browser. Everything runs locally; the photo never leaves your machine.</p>
+      </div>
+  <footer>
+    <h2>Result</h2>
+    <div class="rrow">
+      <div id="qwrap"><img id="qimg" alt="query"><span class="hint">click to enlarge</span></div>
+      <div id="out"><p class="note">Pick a query above, or drop in your own photo.</p></div>
+    </div>
+  </footer>
+  <div class="lic">Photographs © their Mapillary contributors, licensed
+    <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>.
+    Each query links to its source image and author.</div>
+</aside>
+<div id="wrap"><div id="map"></div><div id="styles"></div></div>
+<div id="lb"><span id="lbx">&times;</span><img id="lbimg" alt="query, full size"><div id="lbcap"></div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.min.js"></script>
+<script type="module">
+/* ---------- basemaps ----------
+   OpenFreeMap serves MapLibre vector styles with no key and no rate limit, rendered by the same
+   engine Mapbox GL uses -- crisp labels, smooth zoom, real styling. (CARTO's raster CDN now
+   watermarks unkeyed tiles, so it is not an option.) Satellite is Esri World Imagery, the same
+   source the model's aerial branch was trained on. */
+const raster = (tiles, attribution) => ({version:8,
+  sources:{r:{type:'raster', tiles:[tiles], tileSize:256, attribution}},
+  layers:[{id:'r', type:'raster', source:'r'}]});
+const ESRI = n => `https://server.arcgisonline.com/ArcGIS/rest/services/${n}/MapServer/tile/{z}/{y}/{x}`;
+const STYLES = {
+  Dark:      'https://tiles.openfreemap.org/styles/dark',
+  Positron:  'https://tiles.openfreemap.org/styles/positron',
+  Liberty:   'https://tiles.openfreemap.org/styles/liberty',
+  Canvas:    raster(ESRI('Canvas/World_Dark_Gray_Base'), 'Canvas &copy; Esri'),
+  Satellite: raster(ESRI('World_Imagery'),
+                    'Imagery &copy; Esri — the aerial branch\u2019s own source'),
+};
+const VECTOR = new Set(['Dark','Positron','Liberty']);
+let styleName = 'Dark';
+
+const map = new maplibregl.Map({
+  container: 'map', style: STYLES.Dark, center: [32.86, 39.93], zoom: 10.2, attributionControl: true,
+});
+map.addControl(new maplibregl.NavigationControl({visualizePitch:false}), 'top-left');
+map.addControl(new maplibregl.ScaleControl({maxWidth:120, unit:'metric'}), 'bottom-left');
+
+document.getElementById('styles').innerHTML = Object.keys(STYLES)
+  .map(k=>`<button data-s="${k}" class="${k===styleName?'on':''}">${k}</button>`).join('');
+function setStyleTo(name){
+  styleName = name;
+  document.querySelectorAll('#styles button')
+    .forEach(x=>x.classList.toggle('on', x.dataset.s === name));
+  map.setStyle(STYLES[name]);               // markers survive setStyle; sources/layers do not
+}
+document.querySelectorAll('#styles button').forEach(b=>b.onclick=()=>setStyleTo(b.dataset.s));
+const wanted = new URLSearchParams(location.search).get('style');
+if(wanted && STYLES[wanted]) setStyleTo(wanted);
+map.on('style.load', ()=>{ if(last) drawOverlays(last); });
+
+/* Basemap note: the vector styles (Dark / Positron / Liberty, OpenFreeMap + MapLibre — the same
+   engine Mapbox GL uses) need a hardware WebGL rasteriser. On software GL they download fine and
+   paint nothing. Canvas and Satellite are raster and always render, so they are the one-click
+   escape hatch; ?style=Canvas picks one on load. */
+
+/* ---------- overlays ---------- */
+let markers = [], last = null;
+
+function clearOverlays(){
+  markers.forEach(m=>m.remove()); markers = [];
+  for(const id of ['cands-glow','cands','link']) if(map.getLayer(id)) map.removeLayer(id);
+  for(const id of ['cands','link']) if(map.getSource(id)) map.removeSource(id);
+}
+
+function pin(cls, lngLat, label){
+  const el = document.createElement('div'); el.className = 'pin ' + cls;
+  const m = new maplibregl.Marker({element: el}).setLngLat(lngLat)
+    .setPopup(new maplibregl.Popup({offset:14, closeButton:false}).setText(label))
+    .addTo(map);
+  el.addEventListener('mouseenter', ()=>m.togglePopup());
+  el.addEventListener('mouseleave', ()=>m.togglePopup());
+  markers.push(m); return m;
+}
+
+function drawOverlays(d){
+  clearOverlays();
+  map.addSource('cands', {type:'geojson', data:{type:'FeatureCollection', features:
+    d.candidates.map(c=>({type:'Feature', properties:{w:c.weight, score:c.score},
+                          geometry:{type:'Point', coordinates:[c.lon, c.lat]}}))}});
+  map.addLayer({id:'cands-glow', type:'circle', source:'cands', paint:{
+    'circle-radius':['+', 8, ['*', 22, ['get','w']]],
+    'circle-color':'#ff5a5a', 'circle-opacity':['*', 0.12, ['+', 0.4, ['get','w']]],
+    'circle-blur':0.85}});
+  map.addLayer({id:'cands', type:'circle', source:'cands', paint:{
+    'circle-radius':['+', 3, ['*', 9, ['get','w']]],
+    'circle-color':'#ff5a5a',
+    'circle-opacity':['+', 0.25, ['*', 0.55, ['get','w']]],
+    'circle-stroke-width':1, 'circle-stroke-color':'#ff8a8a',
+    'circle-stroke-opacity':['+', 0.25, ['*', 0.55, ['get','w']]]}});
+  map.on('mouseenter','cands',()=>map.getCanvas().style.cursor='crosshair');
+  map.on('mouseleave','cands',()=>map.getCanvas().style.cursor='');
+
+  const b = new maplibregl.LngLatBounds();
+  d.candidates.forEach(c=>b.extend([c.lon, c.lat]));
+  pin('pred', [d.lon, d.lat], 'prediction'); b.extend([d.lon, d.lat]);
+
+  if(d.gt_lat != null){
+    pin('gt', [d.gt_lon, d.gt_lat], 'ground truth'); b.extend([d.gt_lon, d.gt_lat]);
+    map.addSource('link', {type:'geojson', data:{type:'Feature', geometry:{type:'LineString',
+      coordinates:[[d.lon,d.lat],[d.gt_lon,d.gt_lat]]}}});
+    map.addLayer({id:'link', type:'line', source:'link',
+      paint:{'line-color':'#9fb0c4','line-width':2,'line-dasharray':[2,2.5],'line-opacity':.85}});
+  }
+  map.fitBounds(b, {padding:110, maxZoom:16.5, duration:700});
+}
+
+/* ---------- ui (static build: everything comes from data.json) ---------- */
+const fmt = m => m == null ? '—' : (m < 1000 ? m.toFixed(0)+' m' : (m/1000).toFixed(2)+' km');
+const lb = document.getElementById('lb');
+function enlarge(src, caption){
+  document.getElementById('lbimg').src = src;
+  document.getElementById('lbcap').textContent = caption || '';
+  lb.classList.add('on');
+}
+lb.onclick = ()=>lb.classList.remove('on');
+document.addEventListener('keydown', e=>{ if(e.key === 'Escape') lb.classList.remove('on'); });
+
+let Q = [], current = null;
+const mlyUrl = id => `https://www.mapillary.com/app/?pKey=${id}&focus=photo`;
+const cap = d => `${d.split} · ${fmt(d.error_m)} · photo by ${d.creator || 'a Mapillary contributor'} (CC BY-SA 4.0)`;
+
+fetch('data.json').then(r=>r.json()).then(D=>{
+  Q = D.queries;
+  document.getElementById('meta').textContent =
+    `${D.cells.toLocaleString()} cells at S2 level ${D.database_level} · aerial α=${D.alpha} · ${Q.length} held-out queries`;
+  document.getElementById('grid').innerHTML = Q.map((d,i)=>`
+    <div class="thumb" data-i="${i}" title="${d.split} · error ${fmt(d.error_m)}">
+      <img src="${d.img}" loading="lazy" alt="street-level photo">
+      <span class="sp ${d.split==='test_seen'?'seen':'unseen'}">${d.split==='test_seen'?'seen':'unseen'}</span>
+      <span class="zoom" data-zoom="${i}" title="enlarge">⤢</span>
+      <b>${fmt(d.error_m)}</b>
+    </div>`).join('');
+
+  const pick = el => {
+    document.querySelectorAll('.thumb').forEach(t=>t.classList.remove('sel'));
+    el.classList.add('sel');
+    const d = Q[+el.dataset.i];
+    current = {src:d.img, cap:cap(d)};
+    document.getElementById('qimg').src = d.img;
+    document.getElementById('qwrap').style.display = 'block';
+    render(d);
+  };
+  document.querySelectorAll('.thumb').forEach(el=>el.onclick=()=>pick(el));
+  document.querySelectorAll('.zoom').forEach(z=>z.onclick=e=>{
+    e.stopPropagation();                       // ⤢ enlarges without selecting
+    const d = Q[+z.dataset.zoom]; enlarge(d.img, cap(d));
+  });
+  const q = new URLSearchParams(location.search).get('q');
+  const el = document.querySelector(`.thumb[data-i="${q === null ? 0 : Number(q)}"]`);
+  if(el) pick(el);
+});
+
+document.getElementById('qimg').onclick = ()=>{ if(current) enlarge(current.src, current.cap); };
+
+/* ---------- upload: the model runs here, in the page ---------- */
+import * as infer from './infer.js';
+let ready = null;
+const box = document.getElementById('loadbox'), fill = document.getElementById('barfill'),
+      msg = document.getElementById('loadmsg'), note = document.getElementById('uploadnote');
+
+function ensureModel(){
+  if(ready) return ready;
+  box.hidden = false; note.hidden = true;
+  ready = infer.load((label, got, total, frac)=>{
+    fill.style.width = `${(frac*100).toFixed(1)}%`;
+    msg.textContent = label === 'ready' ? 'model ready — it stays cached for next time'
+      : `${label}: ${(got/1048576).toFixed(1)} / ${(total/1048576).toFixed(1)} MB`;
+  }).then(m=>{ setTimeout(()=>{ box.hidden = true; note.hidden = false;
+                 note.innerHTML = 'Model loaded and cached. Uploads run entirely in this page.'; }, 1500);
+               return m; })
+    .catch(e=>{ msg.textContent = 'model failed to load: ' + e; ready = null; throw e; });
+  return ready;
+}
+
+const drop = document.getElementById('drop'), file = document.getElementById('file');
+drop.onclick = ()=>file.click();
+drop.ondragover = e=>{e.preventDefault(); drop.classList.add('over')};
+drop.ondragleave = ()=>drop.classList.remove('over');
+drop.ondrop = e=>{e.preventDefault(); drop.classList.remove('over'); upload(e.dataTransfer.files[0])};
+file.onchange = ()=>upload(file.files[0]);
+
+async function upload(f){
+  if(!f) return;
+  document.querySelectorAll('.thumb').forEach(t=>t.classList.remove('sel'));
+  const url = URL.createObjectURL(f);
+  current = {src:url, cap:f.name};
+  document.getElementById('qimg').src = url;
+  document.getElementById('qwrap').style.display = 'block';
+  document.getElementById('out').innerHTML = '<p class="note">loading model…</p>';
+  try{
+    await ensureModel();
+    document.getElementById('out').innerHTML = '<p class="note">localising…</p>';
+    const img = new Image(); img.src = url; await img.decode();
+    const t0 = performance.now();
+    const r = infer.localize(await infer.embed(img));
+    renderUpload(f.name, r, performance.now() - t0);
+  }catch(e){
+    document.getElementById('out').innerHTML = `<p class="note err">${e}</p>`;
+  }
+}
+
+function renderUpload(name, r, ms){
+  last = {lat:r.lat, lon:r.lon, candidates:r.candidates};
+  drawOverlays(last);
+  document.getElementById('out').innerHTML = `<table>
+    <tr><td>source</td><td>${name}</td></tr>
+    <tr><td>predicted</td><td>${r.lat.toFixed(6)}, ${r.lon.toFixed(6)}</td></tr>
+    <tr><td>top cell score</td><td>${r.top_score.toFixed(3)}</td></tr>
+    <tr><td>ground truth</td><td>unknown — your photo</td></tr>
+    <tr><td>ran in</td><td>${(ms/1000).toFixed(1)} s, in this browser</td></tr>
+    </table>
+    <p class="note">This used the in-page pipeline: prototypes + aerial + refine. The
+    pre-selected queries above show the <b>full</b> method, which adds an image-refine step whose
+    97,834-image index is too large to ship — worth about 1 point of R@100m.</p>`;
+}
+
+function render(d){
+  last = d;
+  drawOverlays(d);
+  document.getElementById('out').innerHTML = `<table>
+    <tr><td>split</td><td>${d.split}</td></tr>
+    <tr><td>predicted</td><td>${d.lat.toFixed(6)}, ${d.lon.toFixed(6)}</td></tr>
+    <tr><td>ground truth</td><td>${d.gt_lat.toFixed(6)}, ${d.gt_lon.toFixed(6)}</td></tr>
+    <tr><td>top cell score</td><td>${d.top_score.toFixed(3)}</td></tr>
+    <tr><td>error</td><td class="big" style="color:${d.error_m<100?'#3ddc84':d.error_m<1000?'#ffb020':'#ff5a5a'}">${fmt(d.error_m)}</td></tr>
+    </table>
+    <p class="note credit">photo by
+      <a href="https://www.mapillary.com/app/user/${encodeURIComponent(d.creator||'')}" target="_blank" rel="noopener">${d.creator || 'a Mapillary contributor'}</a>
+      · <a href="${mlyUrl(d.id)}" target="_blank" rel="noopener">source image</a> · CC BY-SA 4.0</p>
+    <p class="note">
+    <span class="k" style="background:#4da3ff"></span>prediction
+    <span class="k" style="background:#3ddc84;margin-left:10px"></span>ground truth
+    <span class="k" style="background:#ff5a5a;margin-left:10px"></span>top-20 candidate cells
+    (size = retrieval weight)</p>`;
+}
+</script>
+</body>
+</html>
