@@ -20,6 +20,7 @@ dependencies = [
   "torch",
   "torchvision",
   "timm",
+  "scipy",
 ]
 
 [project.optional-dependencies]
