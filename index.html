@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>geoloc-tr — Ankara</title>
+<link rel="icon" type="image/png" href="TurkAI-FavIcon-512x512-1.png">
 <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <style>
@@ -74,7 +75,11 @@
   #wrap{flex:1;position:relative}
   #map{position:absolute;inset:0}
   /* style switcher */
-  #styles{position:absolute;top:12px;right:12px;z-index:5;display:flex;gap:4px;
+  #brand{position:absolute;top:12px;right:12px;z-index:6;width:60px;height:60px;
+         border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;
+         box-shadow:0 2px 12px rgba(0,0,0,.5)}
+  #brand img{width:52px;height:52px;display:block}
+  #styles{position:absolute;top:84px;right:12px;z-index:5;display:flex;gap:4px;
           background:rgba(15,18,22,.86);padding:4px;border-radius:8px;
           border:1px solid var(--line);backdrop-filter:blur(6px)}
   #styles button{font:12px/1 inherit;background:transparent;color:var(--dim);border:0;
@@ -137,7 +142,9 @@
     <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>.
     Each query links to its source image and author.</div>
 </aside>
-<div id="wrap"><div id="map"></div><div id="styles"></div></div>
+<div id="wrap"><div id="map"></div>
+  <div id="brand" title="TURK Ai"><img src="TurkAI-FavIcon-512x512-1.png" alt="TURK Ai"></div>
+  <div id="styles"></div></div>
 <div id="lb"><span id="lbx">&times;</span><img id="lbimg" alt="query, full size"><div id="lbcap"></div></div>
 
 <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.min.js"></script>
