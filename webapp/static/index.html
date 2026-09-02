@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>geoloc-tr — Ankara</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root{
+    --bg:#0f1216; --panel:#171b21; --line:#262c35; --ink:#e7ecf2; --dim:#8b97a7;
+    --pred:#4da3ff; --gt:#3ddc84; --cand:#ff5a5a; --warn:#ffb020;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{display:flex;font:14px/1.45 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+       background:var(--bg);color:var(--ink)}
+  aside{width:380px;flex:0 0 380px;background:var(--panel);border-right:1px solid var(--line);
+        display:flex;flex-direction:column;overflow:hidden}
+  header{padding:14px 16px;border-bottom:1px solid var(--line)}
+  header h1{margin:0;font-size:15px;letter-spacing:.2px}
+  header p{margin:4px 0 0;font-size:12px;color:var(--dim)}
+  .scroll{overflow-y:auto;padding:14px 16px;flex:1}
+  h2{font-size:11px;text-transform:uppercase;letter-spacing:.9px;color:var(--dim);
+     margin:18px 0 8px;font-weight:600}
+  h2:first-child{margin-top:0}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  .thumb{position:relative;border:2px solid transparent;border-radius:6px;overflow:hidden;
+         cursor:pointer;background:#0b0e12;aspect-ratio:4/3}
+  .thumb img{width:100%;height:100%;object-fit:cover;display:block;opacity:.85}
+  .thumb:hover img{opacity:1}
+  .thumb.sel{border-color:var(--pred)}
+  .thumb b{position:absolute;left:0;right:0;bottom:0;padding:2px 4px;font-size:10px;
+           font-weight:500;background:rgba(0,0,0,.66);color:#fff}
+  .thumb .sp{position:absolute;top:3px;left:3px;font-size:9px;padding:1px 4px;border-radius:3px;
+             background:rgba(0,0,0,.7)}
+  .sp.unseen{color:var(--warn)} .sp.seen{color:var(--gt)}
+  .drop{border:1.5px dashed var(--line);border-radius:8px;padding:16px;text-align:center;
+        color:var(--dim);cursor:pointer;font-size:13px}
+  .drop:hover,.drop.over{border-color:var(--pred);color:var(--ink)}
+  #qimg{border-radius:6px;display:none;border:1px solid var(--line)}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  td{padding:4px 0;vertical-align:top}
+  td:first-child{color:var(--dim);width:44%}
+  .big{font-size:20px;font-weight:650}
+  .k{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;
+     vertical-align:middle}
+  footer{border-top:1px solid var(--line);padding:12px 16px;background:#12161c;flex:0 0 auto;
+         max-height:46vh;overflow-y:auto}
+  footer h2{margin:0 0 8px}
+  .rrow{display:flex;gap:10px;align-items:flex-start}
+  .rrow #qimg{width:120px;flex:0 0 120px;margin:0}
+  .rrow #out{flex:1;min-width:0}
+  #map{flex:1}
+  .note{font-size:11.5px;color:var(--dim);line-height:1.5;margin-top:10px}
+  button{font:inherit;background:var(--pred);color:#04121f;border:0;border-radius:6px;
+         padding:8px 12px;cursor:pointer;font-weight:600}
+  button[disabled]{opacity:.5;cursor:default}
+  .err{color:var(--cand)}
+</style>
+</head>
+<body>
+<aside>
+  <header>
+    <h1>geoloc-tr — where was this photo taken?</h1>
+    <p id="meta">loading model…</p>
+  </header>
+  <div class="scroll">
+    <h2>Pre-selected queries</h2>
+    <div class="grid" id="grid"></div>
+    <p class="note">Twelve held-out queries spanning the <b>error quantiles</b> of the full method —
+      not a best-of reel. Green = <b>test_seen</b> (another drive down a trained street),
+      amber = <b>test_unseen</b> (a ~1 km block with no ground training data at all).
+      The label is the error recorded during evaluation.</p>
+
+    <h2>Or use your own</h2>
+    <div class="drop" id="drop">Drop a street-level photo here, or click to choose<br>
+      <span style="font-size:11px">it should be somewhere in Ankara for the answer to mean anything</span></div>
+    <input type="file" id="file" accept="image/*" hidden>
+
+  </div>
+  <footer id="result">
+    <h2>Result</h2>
+    <div class="rrow">
+      <img id="qimg" alt="query">
+      <div id="out"><p class="note">Pick a query above, or drop in your own photo.</p></div>
+    </div>
+  </footer>
+</aside>
+<div id="map"></div>
+
+<script>
+const map = L.map('map').setView([39.93, 32.86], 11);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+  {maxZoom:19, attribution:'&copy; OpenStreetMap'}).addTo(map);
+const layer = L.featureGroup().addTo(map);
+
+const dot = (c,r) => L.divIcon({className:'', iconSize:[r*2,r*2], iconAnchor:[r,r],
+  html:`<div style="width:${r*2}px;height:${r*2}px;border-radius:50%;background:${c};
+        border:2px solid #0b0e12;box-shadow:0 0 0 1px ${c}"></div>`});
+
+const fmt = m => m == null ? '—' : (m < 1000 ? m.toFixed(0)+' m' : (m/1000).toFixed(2)+' km');
+
+let samples = [];
+
+fetch('/api/meta').then(r=>r.json()).then(m=>{
+  document.getElementById('meta').textContent =
+    `${m.cells.toLocaleString()} cells at S2 level ${m.database_level} · aerial α=${m.alpha} · ${m.device}`;
+});
+
+fetch('/api/samples').then(r=>r.json()).then(list=>{
+  samples = list;
+  document.getElementById('grid').innerHTML = list.map((s,i)=>`
+    <div class="thumb" data-i="${i}" title="${s.split} · recorded error ${fmt(s.recorded_err_m)}">
+      <img src="/api/image/${s.id}" loading="lazy">
+      <span class="sp ${s.split==='test_seen'?'seen':'unseen'}">${s.split==='test_seen'?'seen':'unseen'}</span>
+      <b>${fmt(s.recorded_err_m)}</b>
+    </div>`).join('');
+  const pick = el => {
+    document.querySelectorAll('.thumb').forEach(t=>t.classList.remove('sel'));
+    el.classList.add('sel');
+    const s = samples[+el.dataset.i];
+    show(document.querySelector(`.thumb[data-i="${el.dataset.i}"] img`).src);
+    run({method:'POST', headers:{'Content-Type':'application/json'},
+         body: JSON.stringify({sample_id: s.id})});
+  };
+  document.querySelectorAll('.thumb').forEach(el=>el.onclick=()=>pick(el));
+  // ?q=<n> deep-links a specific query, so a result view can be linked or screenshotted directly
+  const q = new URLSearchParams(location.search).get('q');
+  if(q !== null){
+    const el = document.querySelector(`.thumb[data-i="${Number(q)}"]`);
+    if(el) pick(el);
+  }
+});
+
+function show(src){ const q=document.getElementById('qimg'); q.src=src; q.style.display='block'; }
+
+const drop = document.getElementById('drop'), file = document.getElementById('file');
+drop.onclick = ()=>file.click();
+drop.ondragover = e=>{e.preventDefault(); drop.classList.add('over')};
+drop.ondragleave = ()=>drop.classList.remove('over');
+drop.ondrop = e=>{e.preventDefault(); drop.classList.remove('over'); upload(e.dataTransfer.files[0])};
+file.onchange = ()=>upload(file.files[0]);
+
+function upload(f){
+  if(!f) return;
+  document.querySelectorAll('.thumb').forEach(t=>t.classList.remove('sel'));
+  show(URL.createObjectURL(f));
+  const fd = new FormData(); fd.append('file', f);
+  run({method:'POST', body: fd});
+}
+
+function run(opts){
+  document.getElementById('out').innerHTML = '<p class="note">localising…</p>';
+  fetch('/api/predict', opts).then(r=>r.json()).then(render)
+    .catch(e=>document.getElementById('out').innerHTML =
+      `<p class="note err">request failed: ${e}</p>`);
+}
+
+function render(d){
+  if(d.error){ document.getElementById('out').innerHTML =
+    `<p class="note err">${d.error}</p>`; return; }
+  layer.clearLayers();
+
+  d.candidates.forEach(c=>L.circleMarker([c.lat,c.lon],
+    {radius: 3 + 9*c.weight, color:'var(--cand)', weight:1,
+     fillColor:'#ff5a5a', fillOpacity: 0.15 + 0.5*c.weight, opacity: 0.35 + 0.5*c.weight})
+    .bindTooltip(`candidate cell · score ${c.score.toFixed(3)}`).addTo(layer));
+
+  L.marker([d.lat,d.lon],{icon:dot('#4da3ff',9),zIndexOffset:1000})
+    .bindTooltip('prediction',{permanent:false}).addTo(layer);
+
+  let rows = `<table>
+    <tr><td>source</td><td>${d.source}</td></tr>
+    <tr><td>predicted</td><td>${d.lat.toFixed(6)}, ${d.lon.toFixed(6)}</td></tr>
+    <tr><td>top cell score</td><td>${d.top_score.toFixed(3)}</td></tr>`;
+
+  if(d.gt_lat != null){
+    L.marker([d.gt_lat,d.gt_lon],{icon:dot('#3ddc84',9),zIndexOffset:900})
+      .bindTooltip('ground truth').addTo(layer);
+    L.polyline([[d.lat,d.lon],[d.gt_lat,d.gt_lon]],
+      {color:'#8b97a7',weight:2,dashArray:'5,6'}).addTo(layer);
+    rows += `<tr><td>ground truth</td><td>${d.gt_lat.toFixed(6)}, ${d.gt_lon.toFixed(6)}</td></tr>
+      <tr><td>error</td><td class="big" style="color:${d.error_m<100?'#3ddc84':d.error_m<1000?'#ffb020':'#ff5a5a'}">${fmt(d.error_m)}</td></tr>`;
+  } else {
+    rows += `<tr><td>ground truth</td><td>unknown (uploaded image)</td></tr>`;
+  }
+  rows += '</table>';
+  rows += `<p class="note">
+    <span class="k" style="background:#4da3ff"></span>prediction
+    <span class="k" style="background:#3ddc84;margin-left:10px"></span>ground truth
+    <span class="k" style="background:#ff5a5a;margin-left:10px"></span>top-20 candidate cells
+    (size = retrieval weight)</p>`;
+  document.getElementById('out').innerHTML = rows;
+  map.fitBounds(layer.getBounds().pad(0.35), {maxZoom: 16});
+}
+</script>
+</body>
+</html>

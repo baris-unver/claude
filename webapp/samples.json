@@ -1,0 +1,122 @@
+[
+ {
+  "id": "323507192649067",
+  "split": "test_seen",
+  "path": "data/ankara/images/323507192649067.jpg",
+  "gt_lat": 39.905033870512,
+  "gt_lon": 32.814265315722,
+  "recorded_err_m": 10.040020586608234,
+  "quantile": 0.05,
+  "sequence": "t79b4hxpsuswjonm1v8cp4"
+ },
+ {
+  "id": "3033139920251896",
+  "split": "test_seen",
+  "path": "data/ankara/images/3033139920251896.jpg",
+  "gt_lat": 39.918319447993,
+  "gt_lon": 32.779753066035,
+  "recorded_err_m": 63.824660208483614,
+  "quantile": 0.2,
+  "sequence": "wddqlsx2jll97qgf7x7ciq"
+ },
+ {
+  "id": "1017924312076952",
+  "split": "test_seen",
+  "path": "data/ankara/images/1017924312076952.jpg",
+  "gt_lat": 39.974901723167,
+  "gt_lon": 32.834491554406,
+  "recorded_err_m": 578.334926802881,
+  "quantile": 0.4,
+  "sequence": "8-qJoEGBT1Oi773TxcNNIQ"
+ },
+ {
+  "id": "156255679805817",
+  "split": "test_seen",
+  "path": "data/ankara/images/156255679805817.jpg",
+  "gt_lat": 39.94532261846,
+  "gt_lon": 32.723290167952,
+  "recorded_err_m": 1839.997077704995,
+  "quantile": 0.6,
+  "sequence": "mkc4dmk4rbxkpwjluyee6n"
+ },
+ {
+  "id": "479238230015088",
+  "split": "test_seen",
+  "path": "data/ankara/images/479238230015088.jpg",
+  "gt_lat": 39.894613238189,
+  "gt_lon": 32.616431513369,
+  "recorded_err_m": 8283.368306496817,
+  "quantile": 0.8,
+  "sequence": "dynxa5ytnrk1n9m4c56m40"
+ },
+ {
+  "id": "480628139826371",
+  "split": "test_seen",
+  "path": "data/ankara/images/480628139826371.jpg",
+  "gt_lat": 39.879294013233,
+  "gt_lon": 32.625830756806,
+  "recorded_err_m": 17037.553814613802,
+  "quantile": 0.95,
+  "sequence": "ojd0wxpfnekktyxrx2tioy"
+ },
+ {
+  "id": "498160111450994",
+  "split": "test_unseen",
+  "path": "data/ankara/images/498160111450994.jpg",
+  "gt_lat": 39.966751179689,
+  "gt_lon": 32.81978199883,
+  "recorded_err_m": 48.72204526091074,
+  "quantile": 0.05,
+  "sequence": "tgDup9pVTy-satvapMqFKg"
+ },
+ {
+  "id": "249084090325491",
+  "split": "test_unseen",
+  "path": "data/ankara/images/249084090325491.jpg",
+  "gt_lat": 39.971790545192,
+  "gt_lon": 32.662766953973,
+  "recorded_err_m": 217.503518082433,
+  "quantile": 0.2,
+  "sequence": "ldzf4768h9i9tjmrabdmcd"
+ },
+ {
+  "id": "326341605787179",
+  "split": "test_unseen",
+  "path": "data/ankara/images/326341605787179.jpg",
+  "gt_lat": 39.961418371168,
+  "gt_lon": 32.769284814099,
+  "recorded_err_m": 531.7973147668085,
+  "quantile": 0.4,
+  "sequence": "WYluDTVuTb2J6YK7RLvyKA"
+ },
+ {
+  "id": "216947633315940",
+  "split": "test_unseen",
+  "path": "data/ankara/images/216947633315940.jpg",
+  "gt_lat": 39.924580160188,
+  "gt_lon": 32.73416755444,
+  "recorded_err_m": 1028.5904090308707,
+  "quantile": 0.6,
+  "sequence": "wew04466y1086z91um76dc"
+ },
+ {
+  "id": "374975873914033",
+  "split": "test_unseen",
+  "path": "data/ankara/images/374975873914033.jpg",
+  "gt_lat": 39.87985948648,
+  "gt_lon": 32.883665550039,
+  "recorded_err_m": 1834.6281907236178,
+  "quantile": 0.8,
+  "sequence": "lmrn2mxmazjekgf01zxh8m"
+ },
+ {
+  "id": "2237712770058171",
+  "split": "test_unseen",
+  "path": "data/ankara/images/2237712770058171.jpg",
+  "gt_lat": 39.924316781182,
+  "gt_lon": 32.733412459448,
+  "recorded_err_m": 7237.888340311938,
+  "quantile": 0.95,
+  "sequence": "KzB4k2HLJZuAERyqxWG3Pn"
+ }
+]
