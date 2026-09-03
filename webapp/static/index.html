@@ -9,177 +9,197 @@
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <style>
   :root{
-    --bg:#0f1216; --panel:#171b21; --line:#262c35; --ink:#e7ecf2; --dim:#8b97a7;
-    --pred:#4da3ff; --gt:#3ddc84; --cand:#ff5a5a; --warn:#ffb020;
+    --bg:#0f1216; --panel:#151920; --card:#1b2028; --line:#262c35; --ink:#e7ecf2; --dim:#8b97a7; --mute:#5f6b7a;
+    --pred:#4da3ff; --gt:#3ddc84; --cand:#ff5a5a; --warn:#ffb020; --red:#ff3b30;
   }
   *{box-sizing:border-box}
   [hidden]{display:none !important}
-  html,body{height:100%;margin:0}
-  body{display:flex;font:14px/1.45 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  html,body{height:100%;height:100dvh;margin:0}
+  body{display:flex;font:14px/1.4 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
        background:var(--bg);color:var(--ink)}
-  aside{width:380px;flex:0 0 380px;background:var(--panel);border-right:1px solid var(--line);
+  button{font:inherit}
+  aside{width:360px;flex:0 0 360px;background:var(--panel);border-right:1px solid var(--line);
         display:flex;flex-direction:column;overflow:hidden}
-  header{padding:14px 16px;border-bottom:1px solid var(--line)}
-  header h1{margin:0;font-size:15px;letter-spacing:.2px}
-  header p{margin:4px 0 0;font-size:12px;color:var(--dim)}
-  .scroll{overflow-y:auto;padding:14px 16px;flex:1}
-  h2{font-size:11px;text-transform:uppercase;letter-spacing:.9px;color:var(--dim);
-     margin:18px 0 8px;font-weight:600}
-  h2:first-child{margin-top:0}
-  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
-  .thumb{position:relative;border:2px solid transparent;border-radius:6px;overflow:hidden;
-         cursor:pointer;background:#0b0e12;aspect-ratio:4/3}
-  .thumb img{width:100%;height:100%;object-fit:cover;display:block;opacity:.85}
-  .thumb:hover img{opacity:1}
-  .thumb.sel{border-color:var(--pred)}
-  .thumb b{position:absolute;left:0;right:0;bottom:0;padding:2px 4px;font-size:10px;
-           font-weight:500;background:rgba(0,0,0,.66);color:#fff}
-  .thumb .sp{position:absolute;top:3px;left:3px;font-size:9px;padding:1px 4px;border-radius:3px;
-             background:rgba(0,0,0,.7)}
-  .sp.unseen{color:var(--warn)} .sp.seen{color:var(--gt)}
-  .sp.current{color:var(--gt)} .sp.wb{color:var(--warn)}
-  .grid.sq .thumb{aspect-ratio:1/1}
-  #modes{display:flex;gap:4px;margin-top:10px;background:#0b0e12;padding:3px;border-radius:8px;
-         border:1px solid var(--line)}
-  #modes button{flex:1;font:12.5px/1 inherit;background:transparent;color:var(--dim);border:0;
-                padding:8px 6px;border-radius:6px;cursor:pointer}
+  /* ---- header ---- */
+  .top{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line)}
+  .top img{width:30px;height:30px;border-radius:50%;background:#fff;padding:2px}
+  .top .t{flex:1;min-width:0}
+  .top b{display:block;font-size:14.5px;letter-spacing:.2px}
+  .top span{display:block;font-size:11.5px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ibtn{width:30px;height:30px;border-radius:50%;border:1px solid var(--line);background:transparent;color:var(--dim);
+        cursor:pointer;font-size:14px;font-weight:600;line-height:1}
+  .ibtn:hover{color:var(--ink);border-color:var(--dim)}
+  #modes{display:flex;gap:4px;margin:12px 14px 0;background:#0b0e12;padding:3px;border-radius:9px;border:1px solid var(--line)}
+  #modes button{flex:1;font-size:12.5px;background:transparent;color:var(--dim);border:0;padding:8px 6px;border-radius:7px;cursor:pointer}
   #modes button:hover{color:var(--ink)}
   #modes button.on{background:var(--pred);color:#04121f;font-weight:600}
+  /* ---- upload ---- */
+  #uploadsec{flex:0 0 auto;padding:12px 14px 0}
+  .drop{border:1.5px dashed rgba(255,59,48,.35);border-radius:12px;padding:14px;text-align:center;cursor:pointer;
+        background:rgba(255,59,48,.06);transition:border-color .15s,background .15s}
+  .drop:hover,.drop.over{border-color:var(--red);background:rgba(255,59,48,.14)}
+  .drop .cta{display:inline-flex;align-items:center;gap:8px;color:#fff;background:linear-gradient(180deg,#ff3b30,#dc0000);
+             font-weight:700;font-size:14px;padding:10px 18px;border-radius:9px;box-shadow:0 4px 16px rgba(255,0,0,.35)}
+  .drop .sub{display:block;margin-top:8px;font-size:11.5px;color:var(--dim)}
   .opt{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;color:var(--dim)}
-  .opt input{width:78px;font:12.5px inherit;background:#0b0e12;color:var(--ink);border:1px solid var(--line);
-             border-radius:5px;padding:4px 6px}
+  .opt input{width:84px;font:12.5px inherit;background:#0b0e12;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px 7px}
   .opt input:focus{outline:none;border-color:var(--pred)}
-  .zoom{position:absolute;top:2px;right:2px;width:20px;height:20px;border-radius:4px;
-        background:rgba(0,0,0,.62);color:#fff;font-size:12px;line-height:20px;text-align:center;
-        opacity:0;transition:opacity .12s}
+  #loadbox{margin-top:8px}
+  .bar{height:4px;background:#0d1015;border-radius:4px;overflow:hidden}
+  .bar i{display:block;height:100%;width:0;background:var(--pred);transition:width .18s}
+  #loadmsg{margin:5px 0 0;font-size:11.5px;color:var(--dim)}
+  /* ---- samples ---- */
+  .scroll{overflow-y:auto;padding:12px 14px;flex:1}
+  h2{font-size:11px;text-transform:uppercase;letter-spacing:.9px;color:var(--dim);margin:0 0 8px;font-weight:600;display:flex;justify-content:space-between}
+  h2 small{font-weight:500;letter-spacing:0;text-transform:none;color:var(--mute)}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  .thumb{position:relative;border:2px solid transparent;border-radius:8px;overflow:hidden;cursor:pointer;background:#0b0e12;aspect-ratio:4/3}
+  .grid.sq .thumb{aspect-ratio:1/1}
+  .thumb img{width:100%;height:100%;object-fit:cover;display:block;opacity:.9}
+  .thumb:hover img{opacity:1}
+  .thumb.sel{border-color:var(--pred)}
+  .thumb b{position:absolute;left:0;right:0;bottom:0;padding:3px 5px;font-size:10.5px;font-weight:600;background:linear-gradient(0deg,rgba(0,0,0,.75),rgba(0,0,0,0));color:#fff}
+  .thumb .sp{position:absolute;top:4px;left:4px;width:7px;height:7px;border-radius:50%}
+  .sp.seen,.sp.current{background:var(--gt)} .sp.unseen,.sp.wb{background:var(--warn)}
+  .zoom{position:absolute;top:2px;right:2px;width:20px;height:20px;border-radius:5px;background:rgba(0,0,0,.6);color:#fff;
+        font-size:12px;line-height:20px;text-align:center;opacity:0;transition:opacity .12s}
   .thumb:hover .zoom{opacity:1}
-  .zoom:hover{background:var(--pred);color:#04121f}
-  /* brand red (#FF0000 from the logo, softened): the only saturated warm colour here, so the
-     primary action is what the eye finds first. Blue is taken by the prediction pin. */
-  .drop{border:2px dashed rgba(255,59,48,.42);border-radius:12px;padding:15px 14px 13px;
-        text-align:center;cursor:pointer;
-        background:linear-gradient(180deg,rgba(255,59,48,.12),rgba(255,59,48,.03));
-        transition:border-color .15s, background .15s}
-  .drop:hover,.drop.over{border-color:#ff3b30;background:rgba(255,59,48,.19)}
-  .drop .cta{display:inline-flex;align-items:center;gap:8px;color:#fff;
-             background:linear-gradient(180deg,#ff3b30,#dc0000);
-             font-weight:700;font-size:14.5px;padding:10px 17px;border-radius:9px;
-             box-shadow:0 4px 18px rgba(255,0,0,.42)}
-  .drop:hover .cta,.drop.over .cta{background:linear-gradient(180deg,#ff5a50,#f10000);
-             box-shadow:0 5px 22px rgba(255,0,0,.55)}
-  .drop .sub{display:block;margin-top:10px;font-size:11.5px;color:var(--dim);line-height:1.45}
-  footer{border-top:1px solid var(--line);padding:12px 16px;background:#12161c;flex:0 0 auto;
-         max-height:46vh;overflow-y:auto}
-  footer h2{margin:0 0 8px}
-  .rrow{display:flex;gap:10px;align-items:flex-start}
-  #qwrap{position:relative;width:120px;flex:0 0 120px;display:none}
-  #qimg{width:100%;border-radius:6px;border:1px solid var(--line);display:block;cursor:zoom-in}
-  #qwrap .hint{position:absolute;inset:auto 0 0 0;padding:2px 4px;font-size:10px;text-align:center;
-               background:rgba(0,0,0,.66);border-radius:0 0 5px 5px;color:#cfd8e3}
-  .rrow #out{flex:1;min-width:0}
-  table{width:100%;border-collapse:collapse;font-size:12.5px}
-  td{padding:4px 0;vertical-align:top}
-  td:first-child{color:var(--dim);width:44%}
-  .big{font-size:20px;font-weight:650}
-  .k{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;
-     vertical-align:middle}
-  .note{font-size:11.5px;color:var(--dim);line-height:1.5;margin-top:10px}
-  .err{color:var(--cand)}
+  /* ---- result ---- */
+  footer{border-top:1px solid var(--line);padding:12px 14px;background:var(--panel);flex:0 0 auto;max-height:50vh;overflow-y:auto}
+  .empty{font-size:12.5px;color:var(--mute);padding:6px 0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}
+  .rrow{display:flex;gap:12px;align-items:center}
+  #qimg{width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid var(--line);display:block;cursor:zoom-in;flex:0 0 72px}
+  .big{font-size:26px;font-weight:700;line-height:1.05;letter-spacing:-.3px}
+  .cap{font-size:11.5px;color:var(--dim);margin-top:3px}
+  .kv{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;padding:5px 0;border-top:1px solid var(--line)}
+  .kv:first-of-type{margin-top:10px}
+  .kv span:first-child{color:var(--dim)} .kv span:last-child{font-variant-numeric:tabular-nums;text-align:right}
+  .chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px}
+  .chip{font-size:11px;color:var(--dim);background:#0f1318;border:1px solid var(--line);border-radius:999px;padding:3px 8px}
+  .legend{display:flex;gap:12px;margin-top:10px;font-size:11px;color:var(--mute)}
+  .legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:middle}
+  details{margin-top:8px;font-size:11.5px;color:var(--dim)}
+  summary{cursor:pointer;color:var(--mute);font-size:11.5px;list-style:none;user-select:none}
+  summary::before{content:"›";display:inline-block;margin-right:5px;transition:transform .12s}
+  details[open] summary::before{transform:rotate(90deg)}
+  details p{margin:6px 0 0;line-height:1.5}
+  details a,.info a{color:var(--pred)}
+  /* ---- map ---- */
   #wrap{flex:1;position:relative}
   #map{position:absolute;inset:0}
-  /* style switcher */
-  #brand{position:absolute;top:12px;right:12px;z-index:6;width:60px;height:60px;
-         border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;
-         box-shadow:0 2px 12px rgba(0,0,0,.5)}
-  #brand img{width:52px;height:52px;display:block}
-  #styles{position:absolute;top:24px;right:82px;z-index:5;display:flex;gap:4px;
-          background:rgba(15,18,22,.86);padding:4px;border-radius:8px;
+  #brand{position:absolute;top:12px;right:12px;z-index:6;width:52px;height:52px;border-radius:50%;background:#fff;display:flex;
+         align-items:center;justify-content:center;box-shadow:0 2px 12px rgba(0,0,0,.5)}
+  #brand img{width:46px;height:46px;display:block}
+  #styles{position:absolute;top:22px;right:74px;z-index:5;display:flex;gap:4px;background:rgba(15,18,22,.86);padding:4px;border-radius:8px;
           border:1px solid var(--line);backdrop-filter:blur(6px)}
-  #styles button{font:12px/1 inherit;background:transparent;color:var(--dim);border:0;
-                 padding:7px 10px;border-radius:5px;cursor:pointer}
+  #styles button{font-size:12px;background:transparent;color:var(--dim);border:0;padding:6px 10px;border-radius:5px;cursor:pointer}
   #styles button:hover{color:var(--ink)}
   #styles button.on{background:var(--pred);color:#04121f;font-weight:600}
-  .fallback{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);z-index:6;
-            background:rgba(15,18,22,.92);border:1px solid var(--line);color:var(--dim);
-            padding:7px 12px;border-radius:8px;font-size:12px}
-  /* map marker pins */
-  .pin{width:18px;height:18px;border-radius:50%;border:2px solid #0b0e12;cursor:pointer}
-  .pin.pred{background:var(--pred);box-shadow:0 0 0 1px var(--pred),0 0 16px #4da3ffaa}
-  .pin.gt{background:var(--gt);box-shadow:0 0 0 1px var(--gt),0 0 16px #3ddc84aa}
+  .pin{width:16px;height:16px;border-radius:50%;border:2px solid #0b0e12;cursor:pointer}
+  .pin.pred{background:var(--pred);box-shadow:0 0 0 1px var(--pred),0 0 14px #4da3ffaa}
+  .pin.gt{background:var(--gt);box-shadow:0 0 0 1px var(--gt),0 0 14px #3ddc84aa}
   .maplibregl-ctrl-attrib.maplibregl-compact{background:rgba(15,18,22,.82);border-radius:12px}
   .maplibregl-ctrl-attrib.maplibregl-compact:not(.maplibregl-compact-show) .maplibregl-ctrl-attrib-inner{display:none}
   .maplibregl-ctrl-attrib a{color:var(--dim)}
-  .maplibregl-popup-content{background:var(--panel);color:var(--ink);border:1px solid var(--line);
-                            font:12px/1.4 inherit;padding:6px 9px;border-radius:6px}
+  .maplibregl-popup-content{background:var(--panel);color:var(--ink);border:1px solid var(--line);font:12px/1.4 inherit;padding:6px 9px;border-radius:6px}
   .maplibregl-popup-tip{display:none}
-  /* lightbox */
-  #lb{position:fixed;inset:0;background:rgba(6,8,11,.94);display:none;z-index:9999;
-      align-items:center;justify-content:center;flex-direction:column;cursor:zoom-out}
-  #lb.on{display:flex}
+  /* ---- overlays: lightbox + info ---- */
+  #lb,#info{position:fixed;inset:0;background:rgba(6,8,11,.9);display:none;z-index:9999;align-items:center;justify-content:center}
+  #lb.on,#info.on{display:flex}
+  #lb{flex-direction:column;cursor:zoom-out}
   #lb img{max-width:94vw;max-height:86vh;border-radius:8px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
   #lbcap{margin-top:12px;font-size:13px;color:var(--dim);text-align:center}
-  #lbx{position:absolute;top:14px;right:20px;font-size:26px;color:var(--dim);cursor:pointer;line-height:1}
-  #lbx:hover{color:var(--ink)}
+  .x{position:absolute;top:14px;right:20px;font-size:26px;color:var(--dim);cursor:pointer;line-height:1;background:none;border:0}
+  .x:hover{color:var(--ink)}
+  .info{width:min(620px,92vw);max-height:86vh;overflow-y:auto;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px 24px;font-size:13px;color:var(--ink);line-height:1.55}
+  .info h3{margin:0 0 4px;font-size:16px}
+  .info h4{margin:18px 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:.8px;color:var(--dim)}
+  .info p{margin:0 0 8px;color:#c3ccd8}
+  .info table{width:100%;border-collapse:collapse;font-size:12px;margin-top:4px}
+  .info td,.info th{padding:4px 6px;border-bottom:1px solid var(--line);text-align:right;font-variant-numeric:tabular-nums}
+  .info th{color:var(--dim);font-weight:500}
+  .info td:first-child,.info th:first-child{text-align:left}
+  /* ---- phones ---- */
+  @media (max-width: 1000px) and (orientation: landscape){
+    aside{width:300px;flex:0 0 300px;overflow-y:auto}
+    .top{order:0} #modes{order:1} #uploadsec{order:2} footer{order:3;max-height:none;border-top:0} .scroll{order:4;overflow:visible;flex:0 0 auto}
+    .grid{display:flex;overflow-x:auto;gap:6px} .grid .thumb{flex:0 0 92px}
+    #brand{width:40px;height:40px} #brand img{width:34px;height:34px} #styles{top:16px;right:60px}
+  }
+  @media (max-width: 1000px) and (orientation: portrait){
+    body{flex-direction:column}
+    #wrap{order:1;flex:1 1 auto;min-height:46vh}
+    aside{order:2;width:100%;flex:0 0 auto;max-height:50vh;overflow-y:auto;border-right:0;border-top:1px solid var(--line)}
+    .top{order:0} #modes{order:1} #uploadsec{order:2} footer{order:3;max-height:none;border-top:0} .scroll{order:4;overflow:visible;flex:0 0 auto}
+    .grid{display:flex;overflow-x:auto;gap:6px;padding-bottom:4px;scroll-snap-type:x proximity}
+    .grid .thumb{flex:0 0 100px;scroll-snap-align:start}
+    #brand{width:40px;height:40px;top:8px;right:8px} #brand img{width:34px;height:34px}
+    #styles{top:8px;right:auto;left:8px;max-width:calc(100% - 60px);overflow-x:auto;padding:3px}
+    .maplibregl-ctrl-top-left{display:none}
+  }
+  @media (hover: none){ .zoom{opacity:1} .thumb img{opacity:1} }
 </style>
 </head>
 <body>
 <aside>
-  <header>
-    <h1>geoloc-tr — where was this photo taken?</h1>
-    <p id="meta">loading model…</p>
-    <div id="modes" hidden>
-      <button data-m="ground" class="on">Street-level photo</button>
-      <button data-m="overhead">Aerial / satellite photo</button>
-    </div>
-  </header>
-  <div class="scroll">
-    <h2>Pre-selected queries</h2>
-    <div class="grid" id="grid"></div>
-    <p class="note" id="note-ground">Twelve held-out queries spanning the <b>error quantiles</b> of the full method —
-      not a best-of reel. Green = <b>test_seen</b> (another drive down a trained street),
-      amber = <b>test_unseen</b> (a ~1 km block with no ground training data at all).
-      The label is the error recorded during evaluation. Click to localise, ⤢ to enlarge.</p>
-    <p class="note" id="note-overhead" hidden>Twelve ~205 m overhead views at random headings, spanning the
-      <b>error quantiles</b> per source — not a best-of reel. Green = <b>current</b> Esri imagery (what the
-      cell database is built from), amber = <b>Wayback 2023 / 2017</b>: the same places on dates the model
-      never saw, which is the honest test. The label is the error recorded through this app's own
-      inference path. Click to localise, ⤢ to enlarge.</p>
-
-    <h2>Or use your own</h2>
+  <div class="top">
+    <img src="TurkAI-FavIcon-512x512-1.png" alt="">
+    <div class="t"><b>geoloc-tr</b><span id="meta">Ankara · loading…</span></div>
+    <button class="ibtn" id="infobtn" title="How it works">?</button>
+  </div>
+  <div id="modes" hidden>
+    <button data-m="ground" class="on">Street photo</button>
+    <button data-m="overhead">Aerial photo</button>
+  </div>
+  <section id="uploadsec">
     <div class="drop" id="drop">
-      <span class="cta"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> Choose a photo</span>
-      <span class="sub" id="sub-ground">or drop one here<br>it should be somewhere in Ankara for the answer to mean anything</span>
-      <span class="sub" id="sub-overhead" hidden>or drop one here — a nadir satellite / aircraft / high-drone image<br>
-        of somewhere in Ankara, anywhere from ~100 m to ~2 km across; any heading is fine</span>
+      <span class="cta"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> Upload photo</span>
+      <span class="sub" id="sub">or drop it here · Ankara</span>
     </div>
     <div class="opt" id="gsdrow" hidden>
-      <label for="gsd">metres per pixel</label><input id="gsd" type="number" step="0.01" min="0.02" max="20" placeholder="optional" autocomplete="off">
-      <span>if known; otherwise the model estimates the photo's ground extent itself</span>
+      <label for="gsd">m / pixel</label><input id="gsd" type="number" step="0.01" min="0.02" max="20" placeholder="optional" autocomplete="off">
     </div>
     <input type="file" id="file" accept="image/*" autocomplete="off" hidden>
+    <div id="loadbox" hidden><div class="bar"><i id="barfill"></i></div><p id="loadmsg"></p></div>
+  </section>
+  <div class="scroll">
+    <h2>Samples <small id="samplecount"></small></h2>
+    <div class="grid" id="grid"></div>
   </div>
-  <footer>
-    <h2>Result</h2>
-    <div class="rrow">
-      <div id="qwrap"><img id="qimg" alt="query"><span class="hint">click to enlarge</span></div>
-      <div id="out"><p class="note">Pick a query above, or drop in your own photo.</p></div>
-    </div>
-  </footer>
+  <footer><div id="out"><div class="empty">Pick a sample or upload a photo.</div></div></footer>
 </aside>
 <div id="wrap"><div id="map"></div>
   <div id="brand" title="TURK Ai"><img src="TurkAI-FavIcon-512x512-1.png" alt="TURK Ai"></div>
   <div id="styles"></div></div>
-<div id="lb"><span id="lbx">&times;</span><img id="lbimg" alt="query, full size"><div id="lbcap"></div></div>
+<div id="lb"><button class="x" id="lbx">&times;</button><img id="lbimg" alt="query, full size"><div id="lbcap"></div></div>
+<div id="info"><button class="x" id="infox">&times;</button>
+  <div class="info" id="infobox">
+    <h3>geoloc-tr — where was this photo taken?</h3>
+    <p>Finds where a photo was taken inside Ankara. Two models: street-level photos, trained on 144,072 Mapillary
+       images, and overhead photos, trained on Esri imagery tiles. DINOv2 ViT-S/14 with proxy classification over
+       S2 cells, a city-scale adaptation of Lindenberger et al., NeurIPS 2025.</p>
+    <h4>Samples</h4>
+    <p>Chosen across the <b>whole</b> error distribution, not only successes; the label is the measured error.
+       <span style="color:var(--gt)">●</span> streets the model saw / current imagery ·
+       <span style="color:var(--warn)">●</span> blocks with no training data / imagery dates the model never saw (Wayback 2023, 2017).</p>
+    <h4>Uploads</h4>
+    <p>Street photos run the full method. Aerial photos of ~50 m to ~2 km across run the coarse-to-fine pyramid: the
+       model estimates the ground extent itself, or give metres per pixel if you know it. Photos are processed on this
+       machine and not stored.</p>
+    <h4>Measured accuracy (R@100 m)</h4>
+    <table id="numbers"></table>
+    <h4>Sources and licences</h4>
+    <p>Street photos © Mapillary contributors, <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>.
+       Aerial imagery © Esri, Maxar, Earthstar Geographics and the GIS user community
+       (<a href="https://www.esri.com/" target="_blank" rel="noopener">World Imagery</a>,
+       <a href="https://livingatlas.arcgis.com/wayback/" target="_blank" rel="noopener">Wayback</a>); display only.
+       Basemaps: OpenFreeMap / OpenStreetMap, Esri.</p>
+  </div>
+</div>
 
 <script>
-/* ---------- basemaps ----------
-   OpenFreeMap serves MapLibre vector styles with no key and no rate limit, rendered by the same
-   engine Mapbox GL uses -- crisp labels, smooth zoom, real styling. (CARTO's raster CDN now
-   watermarks unkeyed tiles, so it is not an option.) Satellite is Esri World Imagery, the same
-   source the model's aerial branch was trained on. */
-/* maxzoom matters: Esri's Canvas tiles stop at z16 and the server returns a "Map data not yet
-   available" image beyond it, which reads as a broken map. Declaring the cap makes MapLibre
-   overzoom the last real tile instead of asking for one that does not exist. */
+/* ---------- basemaps ---------- */
 const raster = (tiles, attribution, maxzoom=19) => ({version:8,
   sources:{r:{type:'raster', tiles:[tiles], tileSize:256, maxzoom, attribution}},
   layers:[{id:'r', type:'raster', source:'r'}]});
@@ -189,70 +209,51 @@ const STYLES = {
   Positron:  'https://tiles.openfreemap.org/styles/positron',
   Liberty:   'https://tiles.openfreemap.org/styles/liberty',
   Canvas:    raster(ESRI('Canvas/World_Dark_Gray_Base'), 'Canvas &copy; Esri', 16),
-  Satellite: raster(ESRI('World_Imagery'),
-                    'Imagery &copy; Esri — the aerial branch\u2019s own source'),
+  Satellite: raster(ESRI('World_Imagery'), 'Imagery &copy; Esri'),
 };
-const VECTOR = new Set(['Dark','Positron','Liberty']);
 let styleName = 'Dark';
-
-const map = new maplibregl.Map({
-  container: 'map', style: STYLES.Dark, center: [32.86, 39.93], zoom: 10.2,
-  /* Collapsed to a single ⓘ instead of a footer bar. Not removed: OpenStreetMap data is ODbL and
-     Esri's imagery terms both REQUIRE attribution, so compact mode -- the supported, one-tap-to-
-     expand form -- is as far as this can go without breaking the licences. MapLibre itself asks
-     for no credit (BSD), so its name is dropped. */
-  attributionControl: false,
-});
+const map = new maplibregl.Map({container:'map', style:STYLES.Dark, center:[32.86, 39.93], zoom:10.2, attributionControl:false});
 map.addControl(new maplibregl.NavigationControl({visualizePitch:false}), 'top-left');
-map.addControl(new maplibregl.AttributionControl({compact: true}), 'bottom-right');
-// compact mode renders expanded on first paint; collapse it so only the ⓘ shows until tapped
-const collapseAttrib = () => document.querySelectorAll('.maplibregl-ctrl-attrib')
-  .forEach(el => el.classList.remove('maplibregl-compact-show'));
+map.addControl(new maplibregl.AttributionControl({compact:true}), 'bottom-right');
+const collapseAttrib = () => document.querySelectorAll('.maplibregl-ctrl-attrib').forEach(el => el.classList.remove('maplibregl-compact-show'));
 map.on('load', collapseAttrib); map.on('styledata', collapseAttrib); setTimeout(collapseAttrib, 400);
 map.addControl(new maplibregl.ScaleControl({maxWidth:120, unit:'metric'}), 'bottom-left');
-
-document.getElementById('styles').innerHTML = Object.keys(STYLES)
-  .map(k=>`<button data-s="${k}" class="${k===styleName?'on':''}">${k}</button>`).join('');
+document.getElementById('styles').innerHTML = Object.keys(STYLES).map(k=>`<button data-s="${k}" class="${k===styleName?'on':''}">${k}</button>`).join('');
 function setStyleTo(name){
   styleName = name;
-  document.querySelectorAll('#styles button')
-    .forEach(x=>x.classList.toggle('on', x.dataset.s === name));
-  map.setStyle(STYLES[name]);               // markers survive setStyle; sources/layers do not
+  document.querySelectorAll('#styles button').forEach(x=>x.classList.toggle('on', x.dataset.s === name));
+  map.setStyle(STYLES[name]);
 }
 document.querySelectorAll('#styles button').forEach(b=>b.onclick=()=>setStyleTo(b.dataset.s));
 const wanted = new URLSearchParams(location.search).get('style');
 if(wanted && STYLES[wanted]) setStyleTo(wanted);
 map.on('style.load', ()=>{ if(last) drawOverlays(last); });
 
-/* Basemap note: the vector styles (Dark / Positron / Liberty, OpenFreeMap + MapLibre — the same
-   engine Mapbox GL uses) need a hardware WebGL rasteriser. On software GL they download fine and
-   paint nothing. Canvas and Satellite are raster and always render, so they are the one-click
-   escape hatch; ?style=Canvas picks one on load. */
-
 /* ---------- overlays ---------- */
 let markers = [], last = null;
-
 function clearOverlays(){
   markers.forEach(m=>m.remove()); markers = [];
   for(const id of ['cands-glow','cands','link']) if(map.getLayer(id)) map.removeLayer(id);
   for(const id of ['cands','link']) if(map.getSource(id)) map.removeSource(id);
 }
-
 function pin(cls, lngLat, label){
   const el = document.createElement('div'); el.className = 'pin ' + cls;
   const m = new maplibregl.Marker({element: el}).setLngLat(lngLat)
-    .setPopup(new maplibregl.Popup({offset:14, closeButton:false}).setText(label))
-    .addTo(map);
-  el.addEventListener('mouseenter', ()=>m.togglePopup());
-  el.addEventListener('mouseleave', ()=>m.togglePopup());
+    .setPopup(new maplibregl.Popup({offset:14, closeButton:false}).setText(label)).addTo(map);
+  el.addEventListener('mouseenter', ()=>m.togglePopup()); el.addEventListener('mouseleave', ()=>m.togglePopup());
   markers.push(m); return m;
 }
-
+function addCandidateLayers(d){
+  map.addSource('cands', {type:'geojson', data:{type:'FeatureCollection', features:
+    d.candidates.map(c=>({type:'Feature', properties:{w:c.weight, score:c.score}, geometry:{type:'Point', coordinates:[c.lon, c.lat]}}))}});
+  map.addLayer({id:'cands-glow', type:'circle', source:'cands', paint:{'circle-radius':['+', 8, ['*', 22, ['get','w']]],
+    'circle-color':'#ff5a5a', 'circle-opacity':['*', 0.12, ['+', 0.4, ['get','w']]], 'circle-blur':0.85}});
+  map.addLayer({id:'cands', type:'circle', source:'cands', paint:{'circle-radius':['+', 3, ['*', 9, ['get','w']]], 'circle-color':'#ff5a5a',
+    'circle-opacity':['+', 0.25, ['*', 0.55, ['get','w']]], 'circle-stroke-width':1, 'circle-stroke-color':'#ff8a8a',
+    'circle-stroke-opacity':['+', 0.25, ['*', 0.55, ['get','w']]]}});
+}
 function drawOverlays(d){
   clearOverlays();
-  // a basemap switch may still be loading (aerial mode flips to Satellite): sources cannot be added
-  // yet, and the style.load handler redraws `last` once it can -- so this must not throw and abort
-  // the caller's result panel
   try{ addCandidateLayers(d); }catch(e){ /* style still loading: redrawn from `last` on style.load */ }
   const b = new maplibregl.LngLatBounds();
   d.candidates.forEach(c=>b.extend([c.lon, c.lat]));
@@ -260,206 +261,165 @@ function drawOverlays(d){
   if(d.gt_lat != null){
     pin('gt', [d.gt_lon, d.gt_lat], 'ground truth'); b.extend([d.gt_lon, d.gt_lat]);
     try{
-      map.addSource('link', {type:'geojson', data:{type:'Feature', geometry:{type:'LineString',
-        coordinates:[[d.lon,d.lat],[d.gt_lon,d.gt_lat]]}}});
-      map.addLayer({id:'link', type:'line', source:'link',
-        paint:{'line-color':'#9fb0c4','line-width':2,'line-dasharray':[2,2.5],'line-opacity':.85}});
-    }catch(e){ /* as above */ }
+      map.addSource('link', {type:'geojson', data:{type:'Feature', geometry:{type:'LineString', coordinates:[[d.lon,d.lat],[d.gt_lon,d.gt_lat]]}}});
+      map.addLayer({id:'link', type:'line', source:'link', paint:{'line-color':'#9fb0c4','line-width':2,'line-dasharray':[2,2.5],'line-opacity':.85}});
+    }catch(e){}
   }
   map.fitBounds(b, {padding:110, maxZoom:16.5, duration:700});
 }
 
-function addCandidateLayers(d){
-  map.addSource('cands', {type:'geojson', data:{type:'FeatureCollection', features:
-    d.candidates.map(c=>({type:'Feature', properties:{w:c.weight, score:c.score},
-                          geometry:{type:'Point', coordinates:[c.lon, c.lat]}}))}});
-  map.addLayer({id:'cands-glow', type:'circle', source:'cands', paint:{
-    'circle-radius':['+', 8, ['*', 22, ['get','w']]],
-    'circle-color':'#ff5a5a', 'circle-opacity':['*', 0.12, ['+', 0.4, ['get','w']]],
-    'circle-blur':0.85}});
-  map.addLayer({id:'cands', type:'circle', source:'cands', paint:{
-    'circle-radius':['+', 3, ['*', 9, ['get','w']]],
-    'circle-color':'#ff5a5a',
-    'circle-opacity':['+', 0.25, ['*', 0.55, ['get','w']]],
-    'circle-stroke-width':1, 'circle-stroke-color':'#ff8a8a',
-    'circle-stroke-opacity':['+', 0.25, ['*', 0.55, ['get','w']]]}});
-  map.on('mouseenter','cands',()=>map.getCanvas().style.cursor='crosshair');
-  map.on('mouseleave','cands',()=>map.getCanvas().style.cursor='');
-}
-
 /* ---------- ui ---------- */
 const fmt = m => m == null ? '—' : (m < 1000 ? m.toFixed(0)+' m' : (m/1000).toFixed(2)+' km');
+const errColor = m => m < 100 ? 'var(--gt)' : m < 1000 ? 'var(--warn)' : 'var(--cand)';
 const lb = document.getElementById('lb');
-function enlarge(src, caption){
-  document.getElementById('lbimg').src = src;
-  document.getElementById('lbcap').textContent = caption || '';
-  lb.classList.add('on');
-}
+function enlarge(src, caption){ document.getElementById('lbimg').src = src; document.getElementById('lbcap').textContent = caption || ''; lb.classList.add('on'); }
 lb.onclick = ()=>lb.classList.remove('on');
-document.addEventListener('keydown', e=>{ if(e.key === 'Escape') lb.classList.remove('on'); });
+const info = document.getElementById('info');
+document.getElementById('infobtn').onclick = ()=>info.classList.add('on');
+document.getElementById('infox').onclick = ()=>info.classList.remove('on');
+info.onclick = e=>{ if(e.target === info) info.classList.remove('on'); };
+document.addEventListener('keydown', e=>{ if(e.key === 'Escape'){ lb.classList.remove('on'); info.classList.remove('on'); } });
 
-/* Two models behind one page: 'ground' = street-level photos (the paper's setting), 'overhead' =
-   satellite / aerial photos as queries (geoloc_tr/overhead.py). Same map, same result panel. */
-const API = {ground:{predict:'/api/predict', image:'/api/image/'},
-             overhead:{predict:'/api/overhead/predict', image:'/api/overhead/image/'}};
-let mode = 'ground', meta = null, current = null;
+/* Two models behind one page: 'ground' = street-level photos, 'overhead' = satellite / aerial photos. */
+const API = {ground:{predict:'/api/predict', image:'/api/image/'}, overhead:{predict:'/api/overhead/predict', image:'/api/overhead/image/'}};
+let mode = 'ground', meta = null, current = null, styleBeforeOverhead = null;
 const samples = {ground:[], overhead:[]};
-let styleBeforeOverhead = null;
+const cap = s => mode === 'ground' ? `${s.split} · ${s.id} · ${fmt(s.recorded_err_m)}` : `${s.label} · ${s.rotation_deg.toFixed(0)}° · ~${s.extent_m} m · ${fmt(s.recorded_err_m)} · © Esri`;
+const badge = s => mode === 'ground' ? `<span class="sp ${s.split==='test_seen'?'seen':'unseen'}"></span>` : `<span class="sp ${s.source==='current'?'current':'wb'}"></span>`;
 
 function setMeta(){
   if(!meta) return;
   const el = document.getElementById('meta');
   if(mode === 'overhead' && meta.overhead){
     const o = meta.overhead;
-    el.textContent = `aerial mode · ${o.cells.toLocaleString()} cells at S2 level ${o.database_level}`+
-      (o.pyramid ? ` + ${o.fine_cells.toLocaleString()} fine cells · pyramid, any photo extent` : '') +
-      ` · code weight α=${o.alpha} · trained on ${1 + o.train_releases.length} imagery dates · ${meta.device}`;
+    el.textContent = `Ankara · aerial · ${Math.round(o.cells/1000)}k cells${o.pyramid ? ' · 50 m – 2 km' : ''}`;
   } else {
-    el.textContent = `${meta.cells.toLocaleString()} cells at S2 level ${meta.database_level} · aerial α=${meta.alpha} · ${meta.device}`;
+    el.textContent = `Ankara · street · ${(meta.cells/1000).toFixed(1)}k cells`;
   }
 }
-
+function renderGrid(){
+  const list = samples[mode], api = API[mode];
+  document.getElementById('samplecount').textContent = list.length;
+  const g = document.getElementById('grid');
+  g.classList.toggle('sq', mode === 'overhead');
+  g.innerHTML = list.map((s,i)=>`
+    <div class="thumb" data-i="${i}" title="${cap(s)}">
+      <img src="${api.image}${s.id}" loading="lazy" alt="">${badge(s)}
+      <span class="zoom" data-zoom="${i}" title="enlarge">⤢</span>
+      <b>${fmt(s.recorded_err_m)}</b>
+    </div>`).join('');
+  g.querySelectorAll('.thumb').forEach(el=>el.onclick=()=>pick(el));
+  g.querySelectorAll('.zoom').forEach(z=>z.onclick=e=>{ e.stopPropagation(); const s = list[+z.dataset.zoom]; enlarge(`${api.image}${s.id}`, cap(s)); });
+}
+function pick(el){
+  document.querySelectorAll('.thumb').forEach(t=>t.classList.remove('sel'));
+  el.classList.add('sel');
+  const s = samples[mode][+el.dataset.i], api = API[mode];
+  current = {src:`${api.image}${s.id}`, cap:cap(s)};
+  run({method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({sample_id: s.id})});
+}
 function setMode(m){
   if(m === 'overhead' && !(meta && meta.overhead)) return;
   const prev = mode; mode = m;
   document.querySelectorAll('#modes button').forEach(b=>b.classList.toggle('on', b.dataset.m === m));
-  for(const id of ['note','sub']){
-    document.getElementById(`${id}-ground`).hidden = (m !== 'ground');
-    document.getElementById(`${id}-overhead`).hidden = (m !== 'overhead');
-  }
   document.getElementById('gsdrow').hidden = (m !== 'overhead');
-  document.getElementById('grid').classList.toggle('sq', m === 'overhead');
-  // the satellite basemap makes an overhead query's match visible at a glance; restore the
-  // previous basemap when going back to street photos
+  document.getElementById('sub').textContent = m === 'overhead' ? 'or drop it here · nadir aerial / satellite image' : 'or drop it here · Ankara';
   if(m === 'overhead' && prev !== 'overhead'){ styleBeforeOverhead = styleName; if(styleName !== 'Satellite') setStyleTo('Satellite'); }
   if(m === 'ground' && prev === 'overhead' && styleBeforeOverhead && styleBeforeOverhead !== styleName) setStyleTo(styleBeforeOverhead);
   setMeta(); renderGrid();
   clearOverlays(); last = null; current = null;
-  document.getElementById('qwrap').style.display = 'none';
-  document.getElementById('out').innerHTML = m === 'overhead'
-    ? '<p class="note">Pick an overhead view above, or drop in your own satellite / aerial photo.</p>'
-    : '<p class="note">Pick a query above, or drop in your own photo.</p>';
+  document.getElementById('out').innerHTML = '<div class="empty">Pick a sample or upload a photo.</div>';
   const u = new URL(location); if(m === 'overhead') u.searchParams.set('mode', m); else u.searchParams.delete('mode');
   history.replaceState(null, '', u);
 }
 document.querySelectorAll('#modes button').forEach(b=>b.onclick=()=>setMode(b.dataset.m));
 
-const badge = s => mode === 'ground'
-  ? `<span class="sp ${s.split==='test_seen'?'seen':'unseen'}">${s.split==='test_seen'?'seen':'unseen'}</span>`
-  : `<span class="sp ${s.source==='current'?'current':'wb'}">${s.source==='current'?'current':s.label.slice(8,12)}</span>`;
-const caption = s => mode === 'ground'
-  ? `${s.split} · ${s.id} · recorded error ${fmt(s.recorded_err_m)}`
-  : `${s.label} · heading ${s.rotation_deg.toFixed(0)}° · ~${s.extent_m} m across · recorded error ${fmt(s.recorded_err_m)}`;
-
-function renderGrid(){
-  const list = samples[mode], api = API[mode];
-  document.getElementById('grid').innerHTML = list.map((s,i)=>`
-    <div class="thumb" data-i="${i}" title="${caption(s)}">
-      <img src="${api.image}${s.id}" loading="lazy">
-      ${badge(s)}
-      <span class="zoom" data-zoom="${i}" title="enlarge">⤢</span>
-      <b>${fmt(s.recorded_err_m)}</b>
-    </div>`).join('');
-  document.querySelectorAll('.thumb').forEach(el=>el.onclick=()=>pick(el));
-  document.querySelectorAll('.zoom').forEach(z=>z.onclick=e=>{
-    e.stopPropagation();                      // ⤢ enlarges without triggering a localisation
-    const s = list[+z.dataset.zoom];
-    enlarge(`${api.image}${s.id}`, caption(s));
-  });
-}
-
-function pick(el){
-  document.querySelectorAll('.thumb').forEach(t=>t.classList.remove('sel'));
-  el.classList.add('sel');
-  const s = samples[mode][+el.dataset.i], api = API[mode];
-  current = {src:`${api.image}${s.id}`, cap:caption(s)};
-  showQuery(current.src);
-  run({method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({sample_id: s.id})});
+function numbersTable(m){
+  const rows = [];
+  const pick = (res, split, method) => { const r = (res||{})[split]; const x = r && r.find(y=>y.method === method); return x ? x['R@100m'].toFixed(1) : '—'; };
+  if(m.results){
+    rows.push(['Street · seen streets', pick(m.results,'test_seen','full: proto + aerial + image refine')]);
+    rows.push(['Street · unseen blocks', pick(m.results,'test_unseen','full: proto + aerial + image refine')]);
+  }
+  const o = m.overhead;
+  if(o && o.results){
+    rows.push(['Aerial · current imagery', pick(o.results,'test_urban','full: proto + aerial + image refine')]);
+    rows.push(['Aerial · 2023 (unseen date)', pick(o.results,'test_urban_wayback64776','prototypes + top-k refine')]);
+    rows.push(['Aerial · 2017 (unseen date)', pick(o.results,'test_urban_wayback25521','prototypes + top-k refine')]);
+  }
+  if(o && o.scale_results){
+    o.scale_results.filter(r=>r.source === 'current' && r.method === 'pyramid, estimated scale').sort((a,b)=>b.extent_m-a.extent_m)
+      .forEach(r=>rows.push([`Aerial · ${r.extent_m >= 1000 ? (r.extent_m/1000).toFixed(1)+' km' : r.extent_m+' m'} across (scale estimated)`, r['R@100m'].toFixed(1)]));
+  }
+  document.getElementById('numbers').innerHTML = '<tr><th>test</th><th>R@100 m</th></tr>' + rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('');
 }
 
 fetch('/api/meta').then(r=>r.json()).then(m=>{
-  meta = m; setMeta();
+  meta = m; setMeta(); numbersTable(m);
   document.getElementById('modes').hidden = !m.overhead;
-  return Promise.all([fetch('/api/samples').then(r=>r.json()),
-                      m.overhead ? fetch('/api/overhead/samples').then(r=>r.json()) : []]);
+  return Promise.all([fetch('/api/samples').then(r=>r.json()), m.overhead ? fetch('/api/overhead/samples').then(r=>r.json()) : []]);
 }).then(([g, o])=>{
   samples.ground = g; samples.overhead = o;
   const params = new URLSearchParams(location.search);
   if(params.get('mode') === 'overhead' && meta.overhead) setMode('overhead'); else renderGrid();
-  // ?q=<i> deep-links one query, then drops out of the URL so a refresh starts clean instead of
-  // replaying the last localisation
   const q = params.get('q');
   if(q !== null){
     const el = document.querySelector(`.thumb[data-i="${Number(q)}"]`); if(el) pick(el);
     const u = new URL(location); u.searchParams.delete('q'); history.replaceState(null, '', u);
   }
 });
-// a page restored from the back/forward cache would come back with the previous result; reload instead
 window.addEventListener('pageshow', e=>{ if(e.persisted) location.reload(); });
 
-function showQuery(src){
-  document.getElementById('qimg').src = src;
-  document.getElementById('qwrap').style.display = 'block';
-}
-document.getElementById('qimg').onclick = ()=>{ if(current) enlarge(current.src, current.cap); };
-
 const drop = document.getElementById('drop'), file = document.getElementById('file');
-drop.onclick = e=>{ if(e.target.closest('.opt')) return; file.click(); };
+drop.onclick = ()=>file.click();
 drop.ondragover = e=>{e.preventDefault(); drop.classList.add('over')};
 drop.ondragleave = ()=>drop.classList.remove('over');
 drop.ondrop = e=>{e.preventDefault(); drop.classList.remove('over'); upload(e.dataTransfer.files[0])};
 file.onchange = ()=>upload(file.files[0]);
-
 function upload(f){
   if(!f) return;
   document.querySelectorAll('.thumb').forEach(t=>t.classList.remove('sel'));
   const url = URL.createObjectURL(f);
   current = {src:url, cap:f.name};
-  showQuery(url);
   const fd = new FormData(); fd.append('file', f);
-  if(mode === 'overhead'){
-    const gsd = document.getElementById('gsd').value;
-    if(gsd) fd.append('gsd', gsd);
-    fd.append('tta', '4');
-  }
+  if(mode === 'overhead'){ const gsd = document.getElementById('gsd').value; if(gsd) fd.append('gsd', gsd); fd.append('tta', '4'); }
   run({method:'POST', body: fd});
 }
-
 function run(opts){
-  document.getElementById('out').innerHTML = '<p class="note">localising…</p>';
-  fetch(API[mode].predict, opts).then(r=>r.json()).then(render)
-    .catch(e=>document.getElementById('out').innerHTML = `<p class="note err">request failed: ${e}</p>`);
+  document.getElementById('out').innerHTML = `<div class="card"><div class="rrow"><img id="qimg" src="${current.src}"><div><div class="big">…</div><div class="cap">localising</div></div></div></div>`;
+  const t0 = performance.now();
+  fetch(API[mode].predict, opts).then(r=>r.json()).then(d=>render(d, performance.now() - t0))
+    .catch(e=>document.getElementById('out').innerHTML = `<div class="empty" style="color:var(--cand)">request failed: ${e}</div>`);
 }
+const legend = gt => `<div class="legend"><span><i style="background:var(--pred)"></i>prediction</span>${gt ? '<span><i style="background:var(--gt)"></i>ground truth</span>' : ''}<span><i style="background:var(--cand)"></i>candidates</span></div>`;
 
-function render(d){
-  if(d.error){ document.getElementById('out').innerHTML = `<p class="note err">${d.error}</p>`; return; }
-  last = d;
-  drawOverlays(d);
-  let rows = `<table>
-    <tr><td>source</td><td>${d.source}</td></tr>
-    <tr><td>predicted</td><td>${d.lat.toFixed(6)}, ${d.lon.toFixed(6)}</td></tr>
-    <tr><td>top cell score</td><td>${d.top_score.toFixed(3)}</td></tr>`;
-  if(d.mode === 'overhead' && d.pyramid){
-    const p = d.pyramid;
-    rows += `<tr><td>photo extent</td><td>~${p.extent_m} m (${p.extent_from === 'gsd' ? 'from m/px' : 'estimated by the model'})</td></tr>
-      <tr><td>pyramid</td><td>${p.cropped ? 'cropped to ~205 m' : 'whole photo'} · ${p.region_cells.toLocaleString()} region cells${p.picked === 'global' ? ' (global pass won)' : ''} · L${p.db_level} cells, codes z${p.code_zoom}</td></tr>
-      <tr><td>rotations averaged</td><td>${d.tta}</td></tr>`;
-  } else if(d.mode === 'overhead'){
-    rows += `<tr><td>scale</td><td>${d.gsd ? `${d.gsd} m/px (given)` : `assumed ~${Math.round(meta.overhead.extent_m)} m across`}</td></tr>
-      <tr><td>rotations averaged</td><td>${d.tta}</td></tr>`;
-  }
-  if(d.gt_lat != null){
-    rows += `<tr><td>ground truth</td><td>${d.gt_lat.toFixed(6)}, ${d.gt_lon.toFixed(6)}</td></tr>
-      <tr><td>error</td><td class="big" style="color:${d.error_m<100?'#3ddc84':d.error_m<1000?'#ffb020':'#ff5a5a'}">${fmt(d.error_m)}</td></tr>`;
-  } else {
-    rows += `<tr><td>ground truth</td><td>unknown (uploaded image)</td></tr>`;
-  }
-  rows += `</table><p class="note">
-    <span class="k" style="background:#4da3ff"></span>prediction
-    <span class="k" style="background:#3ddc84;margin-left:10px"></span>ground truth
-    <span class="k" style="background:#ff5a5a;margin-left:10px"></span>top-20 candidate cells
-    (size = retrieval weight)</p>`;
-  document.getElementById('out').innerHTML = rows;
+function render(d, ms){
+  if(d.error){ document.getElementById('out').innerHTML = `<div class="empty" style="color:var(--cand)">${d.error}</div>`; return; }
+  last = d; drawOverlays(d);
+  const known = d.gt_lat != null;
+  const chips = [];
+  if(d.pyramid){ const p = d.pyramid;
+    chips.push(`~${p.extent_m >= 1000 ? (p.extent_m/1000).toFixed(1)+' km' : p.extent_m+' m'} across${p.extent_from === 'gsd' ? '' : ' (estimated)'}`);
+    chips.push(p.cropped ? '205 m crop' : 'whole photo'); if(p.picked === 'global') chips.push('global search');
+  } else if(d.mode === 'overhead' && d.gsd){ chips.push(`${d.gsd} m/px`); }
+  if(d.mode === 'overhead') chips.push(`${d.tta} rotations`);
+  chips.push(`score ${d.top_score.toFixed(2)}`, `${(ms/1000).toFixed(1)} s`);
+  const head = known
+    ? `<div class="big" style="color:${errColor(d.error_m)}">${fmt(d.error_m)}</div><div class="cap">error · recorded ${fmt(d.recorded_err_m)}</div>`
+    : `<div class="big">${d.lat.toFixed(5)}, ${d.lon.toFixed(5)}</div><div class="cap">${d.source} · ground truth unknown</div>`;
+  const kv = known ? `<div class="kv"><span>prediction</span><span>${d.lat.toFixed(5)}, ${d.lon.toFixed(5)}</span></div>
+                     <div class="kv"><span>ground truth</span><span>${d.gt_lat.toFixed(5)}, ${d.gt_lon.toFixed(5)}</span></div>` : '';
+  const details = d.mode === 'overhead'
+    ? (d.pyramid ? `Coarse-to-fine pyramid: region and extent from the whole photo, then a fine search inside the region on a ~205 m crop (L${d.pyramid.db_level} cells, codes z${d.pyramid.code_zoom}, ${d.pyramid.region_cells.toLocaleString()} region cells).`
+                 : `Prototypes + per-cell codes + refinement, ${d.tta} rotations averaged.`)
+    : `Full method: prototypes + aerial codes + image-level refinement.`;
+  document.getElementById('out').innerHTML = `<div class="card">
+    <div class="rrow"><img id="qimg" src="${current.src}"><div>${head}</div></div>${kv}
+    <div class="chips">${chips.map(c=>`<span class="chip">${c}</span>`).join('')}</div>
+    ${legend(known)}
+    <details><summary>Details</summary><p>${details}</p></details>
+  </div>`;
+  document.getElementById('qimg').onclick = ()=>enlarge(current.src, current.cap);
 }
 </script>
 </body>

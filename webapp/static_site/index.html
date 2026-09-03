@@ -9,284 +9,199 @@
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <style>
   :root{
-    --bg:#0f1216; --panel:#171b21; --line:#262c35; --ink:#e7ecf2; --dim:#8b97a7;
-    --pred:#4da3ff; --gt:#3ddc84; --cand:#ff5a5a; --warn:#ffb020;
+    --bg:#0f1216; --panel:#151920; --card:#1b2028; --line:#262c35; --ink:#e7ecf2; --dim:#8b97a7; --mute:#5f6b7a;
+    --pred:#4da3ff; --gt:#3ddc84; --cand:#ff5a5a; --warn:#ffb020; --red:#ff3b30;
   }
   *{box-sizing:border-box}
   [hidden]{display:none !important}
   html,body{height:100%;height:100dvh;margin:0}
-  body{display:flex;font:14px/1.45 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  body{display:flex;font:14px/1.4 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
        background:var(--bg);color:var(--ink)}
-  aside{width:380px;flex:0 0 380px;background:var(--panel);border-right:1px solid var(--line);
+  button{font:inherit}
+  aside{width:360px;flex:0 0 360px;background:var(--panel);border-right:1px solid var(--line);
         display:flex;flex-direction:column;overflow:hidden}
-  header{padding:14px 16px;border-bottom:1px solid var(--line)}
-  header h1{margin:0;font-size:15px;letter-spacing:.2px}
-  header p{margin:4px 0 0;font-size:12px;color:var(--dim)}
-  #uploadsec{flex:0 0 auto;padding:14px 16px 0}
-  .scroll{overflow-y:auto;padding:14px 16px;flex:1}
-  h2{font-size:11px;text-transform:uppercase;letter-spacing:.9px;color:var(--dim);
-     margin:18px 0 8px;font-weight:600}
-  .scroll h2:first-child{margin-top:0}
-  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
-  .thumb{position:relative;border:2px solid transparent;border-radius:6px;overflow:hidden;
-         cursor:pointer;background:#0b0e12;aspect-ratio:4/3}
-  .thumb img{width:100%;height:100%;object-fit:cover;display:block;opacity:.85}
-  .thumb:hover img{opacity:1}
-  .thumb.sel{border-color:var(--pred)}
-  .thumb b{position:absolute;left:0;right:0;bottom:0;padding:2px 4px;font-size:10px;
-           font-weight:500;background:rgba(0,0,0,.66);color:#fff}
-  .thumb .sp{position:absolute;top:3px;left:3px;font-size:9px;padding:1px 4px;border-radius:3px;
-             background:rgba(0,0,0,.7)}
-  .sp.unseen{color:var(--warn)} .sp.seen{color:var(--gt)}
-  .sp.current{color:var(--gt)} .sp.wb{color:var(--warn)}
-  .grid.sq .thumb{aspect-ratio:1/1}
-  #modes{display:flex;gap:4px;margin-top:10px;background:#0b0e12;padding:3px;border-radius:8px;
-         border:1px solid var(--line)}
-  #modes button{flex:1;font:12.5px/1 inherit;background:transparent;color:var(--dim);border:0;
-                padding:8px 6px;border-radius:6px;cursor:pointer}
+  /* ---- header ---- */
+  .top{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line)}
+  .top img{width:30px;height:30px;border-radius:50%;background:#fff;padding:2px}
+  .top .t{flex:1;min-width:0}
+  .top b{display:block;font-size:14.5px;letter-spacing:.2px}
+  .top span{display:block;font-size:11.5px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ibtn{width:30px;height:30px;border-radius:50%;border:1px solid var(--line);background:transparent;color:var(--dim);
+        cursor:pointer;font-size:14px;font-weight:600;line-height:1}
+  .ibtn:hover{color:var(--ink);border-color:var(--dim)}
+  #modes{display:flex;gap:4px;margin:12px 14px 0;background:#0b0e12;padding:3px;border-radius:9px;border:1px solid var(--line)}
+  #modes button{flex:1;font-size:12.5px;background:transparent;color:var(--dim);border:0;padding:8px 6px;border-radius:7px;cursor:pointer}
   #modes button:hover{color:var(--ink)}
   #modes button.on{background:var(--pred);color:#04121f;font-weight:600}
-  .opt{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;color:var(--dim);flex-wrap:wrap}
-  .opt input{width:78px;font:12.5px inherit;background:#0b0e12;color:var(--ink);border:1px solid var(--line);
-             border-radius:5px;padding:4px 6px}
+  /* ---- upload ---- */
+  #uploadsec{flex:0 0 auto;padding:12px 14px 0}
+  .drop{border:1.5px dashed rgba(255,59,48,.35);border-radius:12px;padding:14px;text-align:center;cursor:pointer;
+        background:rgba(255,59,48,.06);transition:border-color .15s,background .15s}
+  .drop:hover,.drop.over{border-color:var(--red);background:rgba(255,59,48,.14)}
+  .drop .cta{display:inline-flex;align-items:center;gap:8px;color:#fff;background:linear-gradient(180deg,#ff3b30,#dc0000);
+             font-weight:700;font-size:14px;padding:10px 18px;border-radius:9px;box-shadow:0 4px 16px rgba(255,0,0,.35)}
+  .drop .sub{display:block;margin-top:8px;font-size:11.5px;color:var(--dim)}
+  .opt{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;color:var(--dim)}
+  .opt input{width:84px;font:12.5px inherit;background:#0b0e12;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px 7px}
   .opt input:focus{outline:none;border-color:var(--pred)}
-  .zoom{position:absolute;top:2px;right:2px;width:20px;height:20px;border-radius:4px;
-        background:rgba(0,0,0,.62);color:#fff;font-size:12px;line-height:20px;text-align:center;
-        opacity:0;transition:opacity .12s}
-  .thumb:hover .zoom{opacity:1}
-  .zoom:hover{background:var(--pred);color:#04121f}
-  /* This is the one thing on the page a visitor is meant to DO, so it reads as a filled
-     primary button rather than another muted dashed box. The dashed frame stays because it is
-     also a drop target. */
-  /* The brand red (#FF0000 sampled from the logo, softened so it does not read as an error) --
-     it is the only saturated warm colour in the UI, so the eye lands on it first, and it ties the
-     primary action to the mark in the corner. Blue was already spoken for by the prediction pin. */
-  .drop{border:2px dashed rgba(255,59,48,.42);border-radius:12px;padding:15px 14px 13px;
-        text-align:center;cursor:pointer;
-        background:linear-gradient(180deg,rgba(255,59,48,.12),rgba(255,59,48,.03));
-        transition:border-color .15s, background .15s}
-  .drop:hover,.drop.over{border-color:#ff3b30;background:rgba(255,59,48,.19)}
-  .drop .cta{display:inline-flex;align-items:center;gap:8px;color:#fff;
-             background:linear-gradient(180deg,#ff3b30,#dc0000);
-             font-weight:700;font-size:14.5px;padding:10px 17px;border-radius:9px;
-             box-shadow:0 4px 18px rgba(255,0,0,.42)}
-  .drop:hover .cta,.drop.over .cta{background:linear-gradient(180deg,#ff5a50,#f10000);
-             box-shadow:0 5px 22px rgba(255,0,0,.55)}
-  .drop .sub{display:block;margin-top:10px;font-size:11.5px;color:var(--dim);line-height:1.45}
-  footer{border-top:1px solid var(--line);padding:12px 16px;background:#12161c;flex:0 0 auto;
-         max-height:46vh;overflow-y:auto}
-  footer h2{margin:0 0 8px}
-  .rrow{display:flex;gap:10px;align-items:flex-start}
-  #qwrap{position:relative;width:120px;flex:0 0 120px;display:none}
-  #qimg{width:100%;border-radius:6px;border:1px solid var(--line);display:block;cursor:zoom-in}
-  #qwrap .hint{position:absolute;inset:auto 0 0 0;padding:2px 4px;font-size:10px;text-align:center;
-               background:rgba(0,0,0,.66);border-radius:0 0 5px 5px;color:#cfd8e3}
-  .rrow #out{flex:1;min-width:0}
-  table{width:100%;border-collapse:collapse;font-size:12.5px}
-  td{padding:4px 0;vertical-align:top}
-  td:first-child{color:var(--dim);width:44%}
-  .big{font-size:20px;font-weight:650}
-  .k{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;
-     vertical-align:middle}
-  .note{font-size:11.5px;color:var(--dim);line-height:1.5;margin-top:10px}
-  .err{color:var(--cand)}
-  .badge{font-size:11px;color:var(--dim);margin-top:6px}
-  .bar{height:5px;background:#0d1015;border:1px solid var(--line);border-radius:4px;
-       overflow:hidden;margin-top:10px}
+  #loadbox{margin-top:8px}
+  .bar{height:4px;background:#0d1015;border-radius:4px;overflow:hidden}
   .bar i{display:block;height:100%;width:0;background:var(--pred);transition:width .18s}
-  .badge a{color:var(--pred)}
-  pre{background:#0d1015;border:1px solid var(--line);border-radius:6px;padding:9px 10px;
-      font-size:11px;overflow-x:auto;color:#b9c6d6;margin:8px 0 0}
-  .lic{padding:10px 16px;border-top:1px solid var(--line);font-size:11px;color:var(--dim);
-       line-height:1.5;flex:0 0 auto}
-  .lic a{color:var(--pred)}
-  .credit a{color:var(--dim)}
+  #loadmsg{margin:5px 0 0;font-size:11.5px;color:var(--dim)}
+  /* ---- samples ---- */
+  .scroll{overflow-y:auto;padding:12px 14px;flex:1}
+  h2{font-size:11px;text-transform:uppercase;letter-spacing:.9px;color:var(--dim);margin:0 0 8px;font-weight:600;display:flex;justify-content:space-between}
+  h2 small{font-weight:500;letter-spacing:0;text-transform:none;color:var(--mute)}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  .thumb{position:relative;border:2px solid transparent;border-radius:8px;overflow:hidden;cursor:pointer;background:#0b0e12;aspect-ratio:4/3}
+  .grid.sq .thumb{aspect-ratio:1/1}
+  .thumb img{width:100%;height:100%;object-fit:cover;display:block;opacity:.9}
+  .thumb:hover img{opacity:1}
+  .thumb.sel{border-color:var(--pred)}
+  .thumb b{position:absolute;left:0;right:0;bottom:0;padding:3px 5px;font-size:10.5px;font-weight:600;background:linear-gradient(0deg,rgba(0,0,0,.75),rgba(0,0,0,0));color:#fff}
+  .thumb .sp{position:absolute;top:4px;left:4px;width:7px;height:7px;border-radius:50%}
+  .sp.seen,.sp.current{background:var(--gt)} .sp.unseen,.sp.wb{background:var(--warn)}
+  .zoom{position:absolute;top:2px;right:2px;width:20px;height:20px;border-radius:5px;background:rgba(0,0,0,.6);color:#fff;
+        font-size:12px;line-height:20px;text-align:center;opacity:0;transition:opacity .12s}
+  .thumb:hover .zoom{opacity:1}
+  /* ---- result ---- */
+  footer{border-top:1px solid var(--line);padding:12px 14px;background:var(--panel);flex:0 0 auto;max-height:50vh;overflow-y:auto}
+  .empty{font-size:12.5px;color:var(--mute);padding:6px 0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}
+  .rrow{display:flex;gap:12px;align-items:center}
+  #qimg{width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid var(--line);display:block;cursor:zoom-in;flex:0 0 72px}
+  .big{font-size:26px;font-weight:700;line-height:1.05;letter-spacing:-.3px}
+  .cap{font-size:11.5px;color:var(--dim);margin-top:3px}
+  .kv{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;padding:5px 0;border-top:1px solid var(--line)}
+  .kv:first-of-type{margin-top:10px}
+  .kv span:first-child{color:var(--dim)} .kv span:last-child{font-variant-numeric:tabular-nums;text-align:right}
+  .chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px}
+  .chip{font-size:11px;color:var(--dim);background:#0f1318;border:1px solid var(--line);border-radius:999px;padding:3px 8px}
+  .legend{display:flex;gap:12px;margin-top:10px;font-size:11px;color:var(--mute)}
+  .legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:middle}
+  details{margin-top:8px;font-size:11.5px;color:var(--dim)}
+  summary{cursor:pointer;color:var(--mute);font-size:11.5px;list-style:none;user-select:none}
+  summary::before{content:"›";display:inline-block;margin-right:5px;transition:transform .12s}
+  details[open] summary::before{transform:rotate(90deg)}
+  details p{margin:6px 0 0;line-height:1.5}
+  details a,.info a{color:var(--pred)}
+  /* ---- map ---- */
   #wrap{flex:1;position:relative}
   #map{position:absolute;inset:0}
-  /* style switcher */
-  #brand{position:absolute;top:12px;right:12px;z-index:6;width:60px;height:60px;
-         border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;
-         box-shadow:0 2px 12px rgba(0,0,0,.5)}
-  #brand img{width:52px;height:52px;display:block}
-  #styles{position:absolute;top:24px;right:82px;z-index:5;display:flex;gap:4px;
-          background:rgba(15,18,22,.86);padding:4px;border-radius:8px;
+  #brand{position:absolute;top:12px;right:12px;z-index:6;width:52px;height:52px;border-radius:50%;background:#fff;display:flex;
+         align-items:center;justify-content:center;box-shadow:0 2px 12px rgba(0,0,0,.5)}
+  #brand img{width:46px;height:46px;display:block}
+  #styles{position:absolute;top:22px;right:74px;z-index:5;display:flex;gap:4px;background:rgba(15,18,22,.86);padding:4px;border-radius:8px;
           border:1px solid var(--line);backdrop-filter:blur(6px)}
-  #styles button{font:12px/1 inherit;background:transparent;color:var(--dim);border:0;
-                 padding:7px 10px;border-radius:5px;cursor:pointer}
+  #styles button{font-size:12px;background:transparent;color:var(--dim);border:0;padding:6px 10px;border-radius:5px;cursor:pointer}
   #styles button:hover{color:var(--ink)}
   #styles button.on{background:var(--pred);color:#04121f;font-weight:600}
-  .fallback{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);z-index:6;
-            background:rgba(15,18,22,.92);border:1px solid var(--line);color:var(--dim);
-            padding:7px 12px;border-radius:8px;font-size:12px}
-  /* map marker pins */
-  .pin{width:18px;height:18px;border-radius:50%;border:2px solid #0b0e12;cursor:pointer}
-  .pin.pred{background:var(--pred);box-shadow:0 0 0 1px var(--pred),0 0 16px #4da3ffaa}
-  .pin.gt{background:var(--gt);box-shadow:0 0 0 1px var(--gt),0 0 16px #3ddc84aa}
+  .pin{width:16px;height:16px;border-radius:50%;border:2px solid #0b0e12;cursor:pointer}
+  .pin.pred{background:var(--pred);box-shadow:0 0 0 1px var(--pred),0 0 14px #4da3ffaa}
+  .pin.gt{background:var(--gt);box-shadow:0 0 0 1px var(--gt),0 0 14px #3ddc84aa}
   .maplibregl-ctrl-attrib.maplibregl-compact{background:rgba(15,18,22,.82);border-radius:12px}
   .maplibregl-ctrl-attrib.maplibregl-compact:not(.maplibregl-compact-show) .maplibregl-ctrl-attrib-inner{display:none}
   .maplibregl-ctrl-attrib a{color:var(--dim)}
-  .maplibregl-popup-content{background:var(--panel);color:var(--ink);border:1px solid var(--line);
-                            font:12px/1.4 inherit;padding:6px 9px;border-radius:6px}
+  .maplibregl-popup-content{background:var(--panel);color:var(--ink);border:1px solid var(--line);font:12px/1.4 inherit;padding:6px 9px;border-radius:6px}
   .maplibregl-popup-tip{display:none}
-
-  /* ---------- phones: map on top, controls in a sheet under it ----------
-     The desktop layout is a fixed 380px sidebar, which leaves a phone no map at all. Here the
-     map leads, the panel becomes a short scrollable sheet, and the sample grid turns into a
-     horizontal strip so 48 thumbnails cost one row instead of sixteen. */
-  /* Short and wide (landscape phone, small laptop window): the sidebar is right, just narrower.
-     Stacking here would leave the map ~180px tall. */
+  /* ---- overlays: lightbox + info ---- */
+  #lb,#info{position:fixed;inset:0;background:rgba(6,8,11,.9);display:none;z-index:9999;align-items:center;justify-content:center}
+  #lb.on,#info.on{display:flex}
+  #lb{flex-direction:column;cursor:zoom-out}
+  #lb img{max-width:94vw;max-height:86vh;border-radius:8px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+  #lbcap{margin-top:12px;font-size:13px;color:var(--dim);text-align:center}
+  .x{position:absolute;top:14px;right:20px;font-size:26px;color:var(--dim);cursor:pointer;line-height:1;background:none;border:0}
+  .x:hover{color:var(--ink)}
+  .info{width:min(620px,92vw);max-height:86vh;overflow-y:auto;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px 24px;font-size:13px;color:var(--ink);line-height:1.55}
+  .info h3{margin:0 0 4px;font-size:16px}
+  .info h4{margin:18px 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:.8px;color:var(--dim)}
+  .info p{margin:0 0 8px;color:#c3ccd8}
+  .info table{width:100%;border-collapse:collapse;font-size:12px;margin-top:4px}
+  .info td,.info th{padding:4px 6px;border-bottom:1px solid var(--line);text-align:right;font-variant-numeric:tabular-nums}
+  .info th{color:var(--dim);font-weight:500}
+  .info td:first-child,.info th:first-child{text-align:left}
+  /* ---- phones ---- */
   @media (max-width: 1000px) and (orientation: landscape){
-    /* same single-scroll sheet as portrait: with ~390px of height a pinned footer starves the
-       upload zone to a sliver. Result is ordered under the header so a tap answers immediately. */
-    aside{width:300px;flex:0 0 300px;overflow-y:auto;-webkit-overflow-scrolling:touch}
-    header{order:0;padding:10px 13px}
-    #uploadsec{order:1;padding:12px 13px 0}
-    footer{order:2;max-height:none;border-top:0;padding:10px 13px}
-    .scroll{order:3;overflow:visible;flex:0 0 auto;padding:2px 13px 12px}
-    .lic{order:4}
-    header h1{font-size:13.5px}
-    .badge{display:none}
-    footer h2{margin-top:0}
-    table td{padding:2px 0;font-size:12.5px}
-    .grid{display:flex;overflow-x:auto;gap:6px;-webkit-overflow-scrolling:touch}
-    .grid .thumb{flex:0 0 96px}
-    #samplenote{display:none}
-    #brand{width:44px;height:44px}
-    #styles{top:18px;right:64px}
-    #styles button{padding:6px 9px;font-size:11.5px}
+    aside{width:300px;flex:0 0 300px;overflow-y:auto}
+    .top{order:0} #modes{order:1} #uploadsec{order:2} footer{order:3;max-height:none;border-top:0} .scroll{order:4;overflow:visible;flex:0 0 auto}
+    .grid{display:flex;overflow-x:auto;gap:6px} .grid .thumb{flex:0 0 92px}
+    #brand{width:40px;height:40px} #brand img{width:34px;height:34px} #styles{top:16px;right:60px}
   }
-
   @media (max-width: 1000px) and (orientation: portrait){
     body{flex-direction:column}
     #wrap{order:1;flex:1 1 auto;min-height:46vh}
-    /* One scroll region, not two: the desktop panel scrolls its middle and pins the result, which
-       on a phone starved the middle to zero height. Here the whole sheet scrolls, and the result
-       is ordered directly under the map so a tap shows its answer without scrolling. */
-    aside{order:2;width:100%;flex:0 0 auto;max-height:48vh;overflow-y:auto;
-          -webkit-overflow-scrolling:touch;border-right:0;border-top:1px solid var(--line)}
-    header{order:0;padding:10px 14px}
-    #uploadsec{order:1;padding:12px 14px 0}
-    footer{order:2;max-height:none;padding:10px 14px;border-top:0}
-    .scroll{order:3;overflow:visible;flex:0 0 auto;padding:2px 14px 12px}
-    .lic{order:4}
-    header h1{font-size:14px}
-    header p{font-size:11px}
-    .badge{display:none}        /* the provenance line belongs on desktop, not a 390px sheet */
-    h2{margin:12px 0 7px}
-    footer h2{margin-top:0}
-    table td{padding:2px 0;font-size:12.5px}
-    .big{font-size:19px}
-    .rrow{gap:10px}
-    #qwrap{width:88px;flex:0 0 88px}
-    /* 48 thumbnails as a swipeable strip instead of sixteen stacked rows */
-    .grid{display:flex;overflow-x:auto;gap:6px;padding-bottom:4px;
-          scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch}
-    .grid .thumb{flex:0 0 104px;scroll-snap-align:start}
-    .drop{padding:14px 12px 12px}
-    .drop .cta{font-size:15px;padding:12px 20px}   /* thumb-sized tap target */
-    #samplenote{display:none}          /* keep the phone text short */
-    /* the 5-button switcher cannot share a 390px row with the mark: move it left, let it scroll */
-    #brand{width:42px;height:42px;top:8px;right:8px}
-    #brand img{width:36px;height:36px}
-    #styles{top:8px;right:auto;left:8px;max-width:calc(100% - 64px);overflow-x:auto;
-            -webkit-overflow-scrolling:touch;padding:3px}
-    #styles button{padding:7px 10px;flex:0 0 auto;font-size:11.5px}
-    /* pinch-zoom replaces the +/- buttons, which collided with the switcher anyway */
+    aside{order:2;width:100%;flex:0 0 auto;max-height:50vh;overflow-y:auto;border-right:0;border-top:1px solid var(--line)}
+    .top{order:0} #modes{order:1} #uploadsec{order:2} footer{order:3;max-height:none;border-top:0} .scroll{order:4;overflow:visible;flex:0 0 auto}
+    .grid{display:flex;overflow-x:auto;gap:6px;padding-bottom:4px;scroll-snap-type:x proximity}
+    .grid .thumb{flex:0 0 100px;scroll-snap-align:start}
+    #brand{width:40px;height:40px;top:8px;right:8px} #brand img{width:34px;height:34px}
+    #styles{top:8px;right:auto;left:8px;max-width:calc(100% - 60px);overflow-x:auto;padding:3px}
     .maplibregl-ctrl-top-left{display:none}
-    .lic{padding:9px 14px}
-    #lb img{max-width:96vw;max-height:74vh}
   }
-  /* touch has no hover, so the enlarge affordance must always be visible */
-  @media (hover: none){
-    .zoom{opacity:1}
-    .thumb img{opacity:1}
-  }
-  /* lightbox */
-  #lb{position:fixed;inset:0;background:rgba(6,8,11,.94);display:none;z-index:9999;
-      align-items:center;justify-content:center;flex-direction:column;cursor:zoom-out}
-  #lb.on{display:flex}
-  #lb img{max-width:94vw;max-height:86vh;border-radius:8px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
-  #lbcap{margin-top:12px;font-size:13px;color:var(--dim);text-align:center}
-  #lbx{position:absolute;top:14px;right:20px;font-size:26px;color:var(--dim);cursor:pointer;line-height:1}
-  #lbx:hover{color:var(--ink)}
+  @media (hover: none){ .zoom{opacity:1} .thumb img{opacity:1} }
 </style>
 </head>
 <body>
 <aside>
-  <header>
-    <h1>geoloc-tr — bu fotoğraf nerede çekildi?</h1>
-    <p id="meta">yükleniyor…</p>
-    <div id="modes" hidden>
-      <button data-m="ground" class="on">Sokak fotoğrafı</button>
-      <button data-m="overhead">Hava / uydu görüntüsü</button>
-    </div>
-    <p class="badge">statik demo · örnekler önceden hesaplandı, yüklemeler tarayıcınızda çalışır · <a href="https://github.com/baris-unver/claude/tree/claude/geoloc-turkey-mapillary-qgfq5b" target="_blank" rel="noopener">kaynak</a></p>
-  </header>
+  <div class="top">
+    <img src="TurkAI-FavIcon-512x512-1.png" alt="">
+    <div class="t"><b>geoloc-tr</b><span id="meta">Ankara · yükleniyor…</span></div>
+    <button class="ibtn" id="infobtn" title="Nasıl çalışır?">?</button>
+  </div>
+  <div id="modes" hidden>
+    <button data-m="ground" class="on">Sokak fotoğrafı</button>
+    <button data-m="overhead">Hava görüntüsü</button>
+  </div>
   <section id="uploadsec">
-    <h2>Kendi fotoğrafınız</h2>
     <div class="drop" id="drop">
-      <span class="cta"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> Fotoğraf seç</span>
-      <span class="sub" id="sub-ground">veya buraya sürükleyin<br>Ankara'da çekilmiş olmalı · tarayıcınızda çalışır</span>
-      <span class="sub" id="sub-overhead" hidden>veya buraya sürükleyin — Ankara'dan dikey (nadir) bir uydu / uçak / drone görüntüsü<br>
-        ~100 m ile ~2 km genişliğinde; yön fark etmez · tarayıcınızda çalışır</span>
+      <span class="cta"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> Fotoğraf yükle</span>
+      <span class="sub" id="sub">veya sürükleyip bırakın · Ankara</span>
     </div>
     <div class="opt" id="gsdrow" hidden>
-      <label for="gsd">metre / piksel</label><input id="gsd" type="number" step="0.01" min="0.02" max="20" placeholder="isteğe bağlı" autocomplete="off">
-      <span>biliniyorsa yazın; boşsa model görüntünün yer genişliğini kendisi tahmin eder</span>
+      <label for="gsd">m / piksel</label><input id="gsd" type="number" step="0.01" min="0.02" max="20" placeholder="opsiyonel" autocomplete="off">
     </div>
     <input type="file" id="file" accept="image/*" autocomplete="off" hidden>
-    <div id="loadbox" hidden><div class="bar"><i id="barfill"></i></div>
-      <p class="note" id="loadmsg" style="margin-top:6px"></p></div>
-    <p class="note" id="uploadnote">İlk yüklemede model indirilir — <b>108 MB</b>, bir kez. Sonra tarayıcıda saklanır.
-      Her şey cihazınızda çalışır; fotoğraf hiçbir yere gönderilmez.</p>
-    <p class="note" id="uploadnote-overhead" hidden>İlk yüklemede hava modeli indirilir — <b>193 MB</b>, bir kez
-      (86 MB encoder + üç ölçekte sıkıştırılmış hücre veritabanları: 278.932 hücre × 2 ve 191.468 ince hücre).
-      Her şey cihazınızda çalışır; görüntü hiçbir yere gönderilmez.</p>
-
+    <div id="loadbox" hidden><div class="bar"><i id="barfill"></i></div><p id="loadmsg"></p></div>
   </section>
   <div class="scroll">
-    <h2>Hazır örnekler</h2>
+    <h2>Örnekler <small id="samplecount"></small></h2>
     <div class="grid" id="grid"></div>
-    <p class="note" id="samplenote">48 test fotoğrafı, hataların <b>tamamından</b> seçildi — sadece başarılı olanlar değil.
-      Yeşil = <b>test_seen</b> (modelin gördüğü sokaklar), turuncu = <b>test_unseen</b> (hiç
-      eğitim verisi olmayan ~1 km bloklar). Etiket, ölçülen hatadır. Konum için tıklayın,
-      büyütmek için ⤢.</p>
-    <p class="note" id="samplenote-overhead" hidden>Rastgele yönlü, ~205 m genişliğinde 12 hava görüntüsü; her kaynak için
-      hata yüzdeliklerinden seçildi — sadece başarılı olanlar değil. Yeşil = <b>güncel</b> Esri görüntüsü
-      (hücre veritabanının kaynağı), turuncu = <b>Wayback 2023 / 2017</b>: aynı yerlerin modelin hiç
-      görmediği tarihlerdeki görüntüleri — asıl sınav budur. Etiket, ölçülen hatadır. Konum için tıklayın,
-      büyütmek için ⤢.</p>
-
-      </div>
-  <footer>
-    <h2>Sonuç</h2>
-    <div class="rrow">
-      <div id="qwrap"><img id="qimg" alt="query"><span class="hint">büyütmek için tıklayın</span></div>
-      <div id="out"><p class="note">Yukarıdan bir örnek seçin veya kendi fotoğrafınızı bırakın.</p></div>
-    </div>
-  </footer>
-  <div class="lic" id="lic-ground">Fotoğraflar © Mapillary katkıcılarına aittir,
-    <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a> ile lisanslıdır.
-    Her örnek, kaynak görüntüsüne ve sahibine bağlanır.</div>
-  <div class="lic" id="lic-overhead" hidden>Hava görüntüleri: <a href="https://www.esri.com/" target="_blank" rel="noopener">Esri</a>
-    World Imagery ve <a href="https://livingatlas.arcgis.com/wayback/" target="_blank" rel="noopener">World Imagery Wayback</a>
-    © Esri, Maxar, Earthstar Geographics ve GIS kullanıcı topluluğu. Yalnızca gösterim amaçlıdır.</div>
+  </div>
+  <footer><div id="out"><div class="empty">Bir örnek seçin veya fotoğraf yükleyin.</div></div></footer>
 </aside>
 <div id="wrap"><div id="map"></div>
   <div id="brand" title="TURK Ai"><img src="TurkAI-FavIcon-512x512-1.png" alt="TURK Ai"></div>
   <div id="styles"></div></div>
-<div id="lb"><span id="lbx">&times;</span><img id="lbimg" alt="query, full size"><div id="lbcap"></div></div>
+<div id="lb"><button class="x" id="lbx">&times;</button><img id="lbimg" alt="query, full size"><div id="lbcap"></div></div>
+<div id="info"><button class="x" id="infox">&times;</button>
+  <div class="info" id="infobox">
+    <h3>geoloc-tr — bu fotoğraf nerede çekildi?</h3>
+    <p>Bir fotoğraftan Ankara içindeki konumu bulur. Sokak fotoğrafları için 144.072 Mapillary görüntüsüyle,
+       hava görüntüleri için Esri uydu karolarıyla eğitilmiş iki model; DINOv2 ViT-S/14, S2 hücreleri üzerinde
+       proxy sınıflandırma (Lindenberger ve ark., NeurIPS 2025 tarifinin şehir ölçeğine uyarlaması).</p>
+    <h4>Örnekler</h4>
+    <p>Test görüntüleri hataların <b>tamamından</b> seçildi, sadece başarılı olanlar değil. Etiket, ölçülen hatadır.
+       <span style="color:var(--gt)">●</span> modelin gördüğü sokaklar / güncel görüntü ·
+       <span style="color:var(--warn)">●</span> eğitim verisi olmayan bloklar / modelin hiç görmediği tarihler (Wayback 2023, 2017).</p>
+    <h4>Yükleme</h4>
+    <p>Model tarayıcınıza bir kez indirilir (sokak 108 MB, hava 193 MB) ve her şey cihazınızda çalışır; fotoğraf
+       hiçbir yere gönderilmez. Hava görüntüleri ~50 m ile ~2 km genişlikte olabilir; model genişliği kendisi
+       tahmin eder, biliniyorsa m/piksel yazabilirsiniz. Sayfa içi sonuçlar <i>prototypes + codes + refine</i>
+       (hava: coarse-to-fine piramit) ile hesaplanır; hazır örnekler sunucuda <i>full</i> yöntemle. Fark ~1 puan R@100 m.</p>
+    <h4>Ölçülen doğruluk (R@100 m)</h4>
+    <table id="numbers"></table>
+    <h4>Kaynaklar ve lisanslar</h4>
+    <p>Sokak fotoğrafları © Mapillary katkıcıları, <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a>;
+       her örnek kaynağına ve sahibine bağlanır. Hava görüntüleri © Esri, Maxar, Earthstar Geographics ve GIS kullanıcı
+       topluluğu (<a href="https://www.esri.com/" target="_blank" rel="noopener">World Imagery</a>,
+       <a href="https://livingatlas.arcgis.com/wayback/" target="_blank" rel="noopener">Wayback</a>); yalnızca gösterim.
+       Harita: OpenFreeMap / OpenStreetMap, Esri. Kod: <a href="https://github.com/baris-unver/claude/tree/claude/geoloc-turkey-mapillary-qgfq5b" target="_blank" rel="noopener">GitHub</a>.</p>
+  </div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.20.1/dist/ort.min.js"></script>
 <script type="module">
-/* ---------- basemaps ----------
-   OpenFreeMap serves MapLibre vector styles with no key and no rate limit, rendered by the same
-   engine Mapbox GL uses -- crisp labels, smooth zoom, real styling. (CARTO's raster CDN now
-   watermarks unkeyed tiles, so it is not an option.) Satellite is Esri World Imagery, the same
-   source the model's aerial branch was trained on. */
-/* maxzoom matters: Esri's Canvas tiles stop at z16 and the server returns a "Map data not yet
-   available" image beyond it, which reads as a broken map. Declaring the cap makes MapLibre
-   overzoom the last real tile instead of asking for one that does not exist. */
+/* ---------- basemaps ---------- */
 const raster = (tiles, attribution, maxzoom=19) => ({version:8,
   sources:{r:{type:'raster', tiles:[tiles], tileSize:256, maxzoom, attribution}},
   layers:[{id:'r', type:'raster', source:'r'}]});
@@ -296,203 +211,157 @@ const STYLES = {
   Positron:  'https://tiles.openfreemap.org/styles/positron',
   Liberty:   'https://tiles.openfreemap.org/styles/liberty',
   Canvas:    raster(ESRI('Canvas/World_Dark_Gray_Base'), 'Canvas &copy; Esri', 16),
-  Satellite: raster(ESRI('World_Imagery'),
-                    'Imagery &copy; Esri — the aerial branch\u2019s own source'),
+  Satellite: raster(ESRI('World_Imagery'), 'Imagery &copy; Esri'),
 };
-const VECTOR = new Set(['Dark','Positron','Liberty']);
 let styleName = 'Dark';
-
-const map = new maplibregl.Map({
-  container: 'map', style: STYLES.Dark, center: [32.86, 39.93], zoom: 10.2,
-  /* Collapsed to a single ⓘ instead of a footer bar. Not removed: OpenStreetMap data is ODbL and
-     Esri's imagery terms both REQUIRE attribution, so compact mode -- the supported, one-tap-to-
-     expand form -- is as far as this can go without breaking the licences. MapLibre itself asks
-     for no credit (BSD), so its name is dropped. */
-  attributionControl: false,
-});
+const map = new maplibregl.Map({container:'map', style:STYLES.Dark, center:[32.86, 39.93], zoom:10.2, attributionControl:false});
 map.addControl(new maplibregl.NavigationControl({visualizePitch:false}), 'top-left');
-map.addControl(new maplibregl.AttributionControl({compact: true}), 'bottom-right');
-// compact mode renders expanded on first paint; collapse it so only the ⓘ shows until tapped
-const collapseAttrib = () => document.querySelectorAll('.maplibregl-ctrl-attrib')
-  .forEach(el => el.classList.remove('maplibregl-compact-show'));
+map.addControl(new maplibregl.AttributionControl({compact:true}), 'bottom-right');
+const collapseAttrib = () => document.querySelectorAll('.maplibregl-ctrl-attrib').forEach(el => el.classList.remove('maplibregl-compact-show'));
 map.on('load', collapseAttrib); map.on('styledata', collapseAttrib); setTimeout(collapseAttrib, 400);
 map.addControl(new maplibregl.ScaleControl({maxWidth:120, unit:'metric'}), 'bottom-left');
-
-document.getElementById('styles').innerHTML = Object.keys(STYLES)
-  .map(k=>`<button data-s="${k}" class="${k===styleName?'on':''}">${k}</button>`).join('');
+document.getElementById('styles').innerHTML = Object.keys(STYLES).map(k=>`<button data-s="${k}" class="${k===styleName?'on':''}">${k}</button>`).join('');
 function setStyleTo(name){
   styleName = name;
-  document.querySelectorAll('#styles button')
-    .forEach(x=>x.classList.toggle('on', x.dataset.s === name));
-  map.setStyle(STYLES[name]);               // markers survive setStyle; sources/layers do not
+  document.querySelectorAll('#styles button').forEach(x=>x.classList.toggle('on', x.dataset.s === name));
+  map.setStyle(STYLES[name]);
 }
 document.querySelectorAll('#styles button').forEach(b=>b.onclick=()=>setStyleTo(b.dataset.s));
 const wanted = new URLSearchParams(location.search).get('style');
 if(wanted && STYLES[wanted]) setStyleTo(wanted);
 map.on('style.load', ()=>{ if(last) drawOverlays(last); });
 
-/* Basemap note: the vector styles (Dark / Positron / Liberty, OpenFreeMap + MapLibre — the same
-   engine Mapbox GL uses) need a hardware WebGL rasteriser. On software GL they download fine and
-   paint nothing. Canvas and Satellite are raster and always render, so they are the one-click
-   escape hatch; ?style=Canvas picks one on load. */
-
 /* ---------- overlays ---------- */
 let markers = [], last = null;
-
 function clearOverlays(){
   markers.forEach(m=>m.remove()); markers = [];
   for(const id of ['cands-glow','cands','link']) if(map.getLayer(id)) map.removeLayer(id);
   for(const id of ['cands','link']) if(map.getSource(id)) map.removeSource(id);
 }
-
 function pin(cls, lngLat, label){
   const el = document.createElement('div'); el.className = 'pin ' + cls;
   const m = new maplibregl.Marker({element: el}).setLngLat(lngLat)
-    .setPopup(new maplibregl.Popup({offset:14, closeButton:false}).setText(label))
-    .addTo(map);
-  el.addEventListener('mouseenter', ()=>m.togglePopup());
-  el.addEventListener('mouseleave', ()=>m.togglePopup());
+    .setPopup(new maplibregl.Popup({offset:14, closeButton:false}).setText(label)).addTo(map);
+  el.addEventListener('mouseenter', ()=>m.togglePopup()); el.addEventListener('mouseleave', ()=>m.togglePopup());
   markers.push(m); return m;
 }
-
+function addCandidateLayers(d){
+  map.addSource('cands', {type:'geojson', data:{type:'FeatureCollection', features:
+    d.candidates.map(c=>({type:'Feature', properties:{w:c.weight, score:c.score}, geometry:{type:'Point', coordinates:[c.lon, c.lat]}}))}});
+  map.addLayer({id:'cands-glow', type:'circle', source:'cands', paint:{'circle-radius':['+', 8, ['*', 22, ['get','w']]],
+    'circle-color':'#ff5a5a', 'circle-opacity':['*', 0.12, ['+', 0.4, ['get','w']]], 'circle-blur':0.85}});
+  map.addLayer({id:'cands', type:'circle', source:'cands', paint:{'circle-radius':['+', 3, ['*', 9, ['get','w']]], 'circle-color':'#ff5a5a',
+    'circle-opacity':['+', 0.25, ['*', 0.55, ['get','w']]], 'circle-stroke-width':1, 'circle-stroke-color':'#ff8a8a',
+    'circle-stroke-opacity':['+', 0.25, ['*', 0.55, ['get','w']]]}});
+}
 function drawOverlays(d){
   clearOverlays();
-  // a basemap switch may still be loading (aerial mode flips to Satellite): sources cannot be added
-  // yet, and the style.load handler redraws `last` once it can -- so this must not throw and abort
-  // the caller's result panel
   try{ addCandidateLayers(d); }catch(e){ /* style still loading: redrawn from `last` on style.load */ }
   const b = new maplibregl.LngLatBounds();
   d.candidates.forEach(c=>b.extend([c.lon, c.lat]));
-  pin('pred', [d.lon, d.lat], 'prediction'); b.extend([d.lon, d.lat]);
+  pin('pred', [d.lon, d.lat], 'tahmin'); b.extend([d.lon, d.lat]);
   if(d.gt_lat != null){
-    pin('gt', [d.gt_lon, d.gt_lat], 'ground truth'); b.extend([d.gt_lon, d.gt_lat]);
+    pin('gt', [d.gt_lon, d.gt_lat], 'gerçek konum'); b.extend([d.gt_lon, d.gt_lat]);
     try{
-      map.addSource('link', {type:'geojson', data:{type:'Feature', geometry:{type:'LineString',
-        coordinates:[[d.lon,d.lat],[d.gt_lon,d.gt_lat]]}}});
-      map.addLayer({id:'link', type:'line', source:'link',
-        paint:{'line-color':'#9fb0c4','line-width':2,'line-dasharray':[2,2.5],'line-opacity':.85}});
-    }catch(e){ /* as above */ }
+      map.addSource('link', {type:'geojson', data:{type:'Feature', geometry:{type:'LineString', coordinates:[[d.lon,d.lat],[d.gt_lon,d.gt_lat]]}}});
+      map.addLayer({id:'link', type:'line', source:'link', paint:{'line-color':'#9fb0c4','line-width':2,'line-dasharray':[2,2.5],'line-opacity':.85}});
+    }catch(e){}
   }
   map.fitBounds(b, {padding:110, maxZoom:16.5, duration:700});
 }
 
-function addCandidateLayers(d){
-  map.addSource('cands', {type:'geojson', data:{type:'FeatureCollection', features:
-    d.candidates.map(c=>({type:'Feature', properties:{w:c.weight, score:c.score},
-                          geometry:{type:'Point', coordinates:[c.lon, c.lat]}}))}});
-  map.addLayer({id:'cands-glow', type:'circle', source:'cands', paint:{
-    'circle-radius':['+', 8, ['*', 22, ['get','w']]],
-    'circle-color':'#ff5a5a', 'circle-opacity':['*', 0.12, ['+', 0.4, ['get','w']]],
-    'circle-blur':0.85}});
-  map.addLayer({id:'cands', type:'circle', source:'cands', paint:{
-    'circle-radius':['+', 3, ['*', 9, ['get','w']]],
-    'circle-color':'#ff5a5a',
-    'circle-opacity':['+', 0.25, ['*', 0.55, ['get','w']]],
-    'circle-stroke-width':1, 'circle-stroke-color':'#ff8a8a',
-    'circle-stroke-opacity':['+', 0.25, ['*', 0.55, ['get','w']]]}});
-  map.on('mouseenter','cands',()=>map.getCanvas().style.cursor='crosshair');
-  map.on('mouseleave','cands',()=>map.getCanvas().style.cursor='');
-}
-
-/* ---------- ui (static build: everything comes from data.json / overhead.json) ---------- */
+/* ---------- ui ---------- */
 const fmt = m => m == null ? '—' : (m < 1000 ? m.toFixed(0)+' m' : (m/1000).toFixed(2)+' km');
+const errColor = m => m < 100 ? 'var(--gt)' : m < 1000 ? 'var(--warn)' : 'var(--cand)';
 const lb = document.getElementById('lb');
-function enlarge(src, caption){
-  document.getElementById('lbimg').src = src;
-  document.getElementById('lbcap').textContent = caption || '';
-  lb.classList.add('on');
-}
+function enlarge(src, caption){ document.getElementById('lbimg').src = src; document.getElementById('lbcap').textContent = caption || ''; lb.classList.add('on'); }
 lb.onclick = ()=>lb.classList.remove('on');
-document.addEventListener('keydown', e=>{ if(e.key === 'Escape') lb.classList.remove('on'); });
+const info = document.getElementById('info');
+document.getElementById('infobtn').onclick = ()=>info.classList.add('on');
+document.getElementById('infox').onclick = ()=>info.classList.remove('on');
+info.onclick = e=>{ if(e.target === info) info.classList.remove('on'); };
+document.addEventListener('keydown', e=>{ if(e.key === 'Escape'){ lb.classList.remove('on'); info.classList.remove('on'); } });
 
-/* Two models behind one page: 'ground' = street-level photos (the paper's setting), 'overhead' =
-   satellite / aerial photos as queries (geoloc_tr/overhead.py). Same map, same result panel. */
 let mode = 'ground', current = null, styleBeforeOverhead = null;
-const DATA = {ground: null, overhead: null};
-const Q = {ground: [], overhead: []};
+const DATA = {ground:null, overhead:null}, Q = {ground:[], overhead:[]};
 const mlyUrl = id => `https://www.mapillary.com/app/?pKey=${id}&focus=photo`;
-const cap = d => mode === 'ground'
-  ? `${d.split} · ${fmt(d.error_m)} · fotoğraf: ${d.creator || 'Mapillary katkıcısı'} (CC BY-SA 4.0)`
-  : `${d.label} · yön ${d.rotation_deg.toFixed(0)}° · ~${d.extent_m} m · hata ${fmt(d.error_m)} · © Esri`;
-const badge = d => mode === 'ground'
-  ? `<span class="sp ${d.split==='test_seen'?'seen':'unseen'}">${d.split==='test_seen'?'seen':'unseen'}</span>`
-  : `<span class="sp ${d.source==='current'?'current':'wb'}">${d.source==='current'?'güncel':d.label.slice(8,12)}</span>`;
+const cap = d => mode === 'ground' ? `${d.split} · ${fmt(d.error_m)} · ${d.creator || 'Mapillary'} · CC BY-SA 4.0`
+                                   : `${d.label} · ${d.rotation_deg.toFixed(0)}° · ~${d.extent_m} m · ${fmt(d.error_m)} · © Esri`;
+const badge = d => mode === 'ground' ? `<span class="sp ${d.split==='test_seen'?'seen':'unseen'}"></span>`
+                                     : `<span class="sp ${d.source==='current'?'current':'wb'}"></span>`;
 
 function setMeta(){
   const el = document.getElementById('meta');
   if(mode === 'overhead' && DATA.overhead){
     const o = DATA.overhead;
-    el.textContent = `hava modu · ${o.cells.toLocaleString('tr-TR')} cell · S2 level ${o.database_level}`+
-      (o.pyramid ? ` + ${o.fine_cells.toLocaleString('tr-TR')} ince cell · piramit, her genişlik` : '') +
-      ` · code weight α=${o.alpha} · ${o.train_dates} görüntü tarihiyle eğitildi · ${Q.overhead.length} örnek`;
+    el.textContent = `Ankara · hava · ${Math.round(o.cells/1000)}k hücre${o.pyramid ? ' · 50 m – 2 km' : ''}`;
   } else if(DATA.ground){
-    const D = DATA.ground;
-    el.textContent = `${D.cells.toLocaleString('tr-TR')} cell · S2 level ${D.database_level} · aerial α=${D.alpha} · ${Q.ground.length} test fotoğrafı`;
+    el.textContent = `Ankara · sokak · ${(DATA.ground.cells/1000).toFixed(1)}k hücre`;
   }
 }
-
 function renderGrid(){
   const list = Q[mode];
-  document.getElementById('grid').classList.toggle('sq', mode === 'overhead');
-  document.getElementById('grid').innerHTML = list.map((d,i)=>`
+  document.getElementById('samplecount').textContent = list.length;
+  const g = document.getElementById('grid');
+  g.classList.toggle('sq', mode === 'overhead');
+  g.innerHTML = list.map((d,i)=>`
     <div class="thumb" data-i="${i}" title="${cap(d)}">
-      <img src="${d.img}" loading="lazy" alt="${mode === 'ground' ? 'street-level photo' : 'overhead view'}">
-      ${badge(d)}
-      <span class="zoom" data-zoom="${i}" title="enlarge">⤢</span>
+      <img src="${d.img}" loading="lazy" alt="">${badge(d)}
+      <span class="zoom" data-zoom="${i}" title="büyüt">⤢</span>
       <b>${fmt(d.error_m)}</b>
     </div>`).join('');
-  document.querySelectorAll('.thumb').forEach(el=>el.onclick=()=>pick(el));
-  document.querySelectorAll('.zoom').forEach(z=>z.onclick=e=>{
-    e.stopPropagation();                       // ⤢ enlarges without selecting
-    const d = list[+z.dataset.zoom]; enlarge(d.img, cap(d));
-  });
+  g.querySelectorAll('.thumb').forEach(el=>el.onclick=()=>pick(el));
+  g.querySelectorAll('.zoom').forEach(z=>z.onclick=e=>{ e.stopPropagation(); const d = list[+z.dataset.zoom]; enlarge(d.img, cap(d)); });
 }
-
 function pick(el){
   document.querySelectorAll('.thumb').forEach(t=>t.classList.remove('sel'));
   el.classList.add('sel');
   const d = Q[mode][+el.dataset.i];
   current = {src:d.img, cap:cap(d)};
-  document.getElementById('qimg').src = d.img;
-  document.getElementById('qwrap').style.display = 'block';
   render(d);
 }
-
 function setMode(m){
   if(m === 'overhead' && !DATA.overhead) return;
   const prev = mode; mode = m;
   document.querySelectorAll('#modes button').forEach(b=>b.classList.toggle('on', b.dataset.m === m));
-  for(const id of ['sub','samplenote','uploadnote','lic']){
-    const g = document.getElementById(id === 'samplenote' || id === 'uploadnote' ? id : `${id}-ground`);
-    if(g) g.hidden = (m !== 'ground');
-    document.getElementById(`${id}-overhead`).hidden = (m !== 'overhead');
-  }
   document.getElementById('gsdrow').hidden = (m !== 'overhead');
-  // the satellite basemap makes an overhead query's match visible at a glance; restore the
-  // previous basemap when going back to street photos
+  document.getElementById('sub').textContent = m === 'overhead' ? 'veya sürükleyip bırakın · dikey hava / uydu görüntüsü' : 'veya sürükleyip bırakın · Ankara';
   if(m === 'overhead' && prev !== 'overhead'){ styleBeforeOverhead = styleName; if(styleName !== 'Satellite') setStyleTo('Satellite'); }
   if(m === 'ground' && prev === 'overhead' && styleBeforeOverhead && styleBeforeOverhead !== styleName) setStyleTo(styleBeforeOverhead);
   setMeta(); renderGrid();
   clearOverlays(); last = null; current = null;
-  document.getElementById('qwrap').style.display = 'none';
-  document.getElementById('out').innerHTML = m === 'overhead'
-    ? '<p class="note">Yukarıdan bir hava görüntüsü seçin veya kendi uydu / hava görüntünüzü bırakın.</p>'
-    : '<p class="note">Yukarıdan bir örnek seçin veya kendi fotoğrafınızı bırakın.</p>';
+  document.getElementById('out').innerHTML = '<div class="empty">Bir örnek seçin veya fotoğraf yükleyin.</div>';
   const u = new URL(location); if(m === 'overhead') u.searchParams.set('mode', m); else u.searchParams.delete('mode');
   history.replaceState(null, '', u);
 }
 document.querySelectorAll('#modes button').forEach(b=>b.onclick=()=>setMode(b.dataset.m));
 
-Promise.all([
-  fetch('data.json').then(r=>r.json()),
-  fetch('overhead.json').then(r=>r.ok ? r.json() : null).catch(()=>null),
-]).then(([D, O])=>{
+function numbersTable(D, O){
+  const rows = [];
+  const pick = (res, split, method) => { const r = (res||{})[split]; const m = r && r.find(x=>x.method === method); return m ? m['R@100m'].toFixed(1) : '—'; };
+  if(D && D.results){
+    rows.push(['Sokak · görülen sokaklar', pick(D.results,'test_seen','full: proto + aerial + image refine')]);
+    rows.push(['Sokak · görülmemiş bloklar', pick(D.results,'test_unseen','full: proto + aerial + image refine')]);
+  }
+  if(O && O.results){
+    rows.push(['Hava · güncel görüntü', pick(O.results,'test_urban','full: proto + aerial + image refine')]);
+    rows.push(['Hava · 2023 (görülmemiş tarih)', pick(O.results,'test_urban_wayback64776','prototypes + top-k refine')]);
+    rows.push(['Hava · 2017 (görülmemiş tarih)', pick(O.results,'test_urban_wayback25521','prototypes + top-k refine')]);
+  }
+  if(O && O.scale_results){
+    const s = O.scale_results.filter(r=>r.source === 'current' && r.method === 'pyramid, estimated scale').sort((a,b)=>b.extent_m-a.extent_m);
+    s.forEach(r=>rows.push([`Hava · ${r.extent_m >= 1000 ? (r.extent_m/1000).toFixed(1)+' km' : r.extent_m+' m'} genişlik (ölçek tahmini)`, r['R@100m'].toFixed(1)]));
+  }
+  document.getElementById('numbers').innerHTML = '<tr><th>test</th><th>R@100 m</th></tr>' + rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('');
+}
+
+Promise.all([fetch('data.json').then(r=>r.json()), fetch('overhead.json').then(r=>r.ok ? r.json() : null).catch(()=>null)])
+.then(([D, O])=>{
   DATA.ground = D; Q.ground = D.queries;
   if(O){ DATA.overhead = O; Q.overhead = O.queries; document.getElementById('modes').hidden = false; }
+  numbersTable(D, O);
   const params = new URLSearchParams(location.search);
   if(params.get('mode') === 'overhead' && O) setMode('overhead'); else { setMeta(); renderGrid(); }
-  // only an explicit ?q=<i> deep-link runs a query on load, and it is dropped from the URL afterwards
-  // so a refresh starts clean instead of replaying the last localisation
   const q = params.get('q');
   if(q !== null){
     const el = document.querySelector(`.thumb[data-i="${Number(q)}"]`); if(el) pick(el);
@@ -501,31 +370,20 @@ Promise.all([
 });
 window.addEventListener('pageshow', e=>{ if(e.persisted) location.reload(); });
 
-document.getElementById('qimg').onclick = ()=>{ if(current) enlarge(current.src, current.cap); };
-
 /* ---------- upload: the model runs here, in the page ---------- */
 import * as infer from './infer.js';
-const ready = {ground: null, overhead: null};
-const box = document.getElementById('loadbox'), fill = document.getElementById('barfill'),
-      msg = document.getElementById('loadmsg');
-
+const ready = {ground:null, overhead:null};
+const box = document.getElementById('loadbox'), fill = document.getElementById('barfill'), msg = document.getElementById('loadmsg');
 function ensureModel(m){
   if(ready[m]) return ready[m];
-  const note = document.getElementById(m === 'overhead' ? 'uploadnote-overhead' : 'uploadnote');
-  box.hidden = false; note.hidden = true;
+  box.hidden = false;
   ready[m] = infer[m].load((label, got, total, frac)=>{
     fill.style.width = `${(frac*100).toFixed(1)}%`;
-    msg.textContent = label === 'ready' ? 'model hazır — sonraki sefer için saklandı'
-      : `${label}: ${(got/1048576).toFixed(1)} / ${(total/1048576).toFixed(1)} MB`;
-  }).then(meta=>{ setTimeout(()=>{ box.hidden = true; if(mode === m) note.hidden = false;
-                 note.innerHTML = m === 'overhead'
-                   ? 'Hava modeli yüklendi ve saklandı. Yüklemeler tamamen bu sayfada çalışır.'
-                   : 'Model yüklendi ve saklandı. Yüklemeler tamamen bu sayfada çalışır.'; }, 1500);
-               return meta; })
-    .catch(e=>{ msg.textContent = 'model yüklenemedi: ' + e; ready[m] = null; throw e; });
+    msg.textContent = label === 'ready' ? 'Model hazır' : `Model indiriliyor · ${(got/1048576).toFixed(0)} / ${(total/1048576).toFixed(0)} MB`;
+  }).then(meta=>{ setTimeout(()=>{ box.hidden = true; }, 1200); return meta; })
+    .catch(e=>{ msg.textContent = 'Model yüklenemedi: ' + e; ready[m] = null; throw e; });
   return ready[m];
 }
-
 const drop = document.getElementById('drop'), file = document.getElementById('file');
 drop.onclick = ()=>file.click();
 drop.ondragover = e=>{e.preventDefault(); drop.classList.add('over')};
@@ -539,84 +397,63 @@ async function upload(f){
   document.querySelectorAll('.thumb').forEach(t=>t.classList.remove('sel'));
   const url = URL.createObjectURL(f);
   current = {src:url, cap:f.name};
-  document.getElementById('qimg').src = url;
-  document.getElementById('qwrap').style.display = 'block';
-  document.getElementById('out').innerHTML = '<p class="note">model yükleniyor…</p>';
+  document.getElementById('out').innerHTML = `<div class="card"><div class="rrow"><img id="qimg" src="${url}"><div><div class="big">…</div><div class="cap">model hazırlanıyor</div></div></div></div>`;
   try{
     const meta = await ensureModel(m);
-    document.getElementById('out').innerHTML = '<p class="note">konum bulunuyor…</p>';
+    document.querySelector('#out .cap').textContent = 'konum aranıyor';
     const img = new Image(); img.src = url; await img.decode();
     const t0 = performance.now();
-    let r, info = {};
+    let r, pyr = null;
     if(m === 'overhead'){
       const gsd = parseFloat(document.getElementById('gsd').value) || null;
-      if(meta.pyramid){
-        r = await infer.overhead.localizePyramid(img, {gsd, tta: meta.tta});
-        info = {gsd, tta: meta.tta, extent: meta.extent_m, pyramid: r.pyramid};
-      } else {
-        const cropSide = gsd ? Math.round(meta.image_size * meta.target_mpp / gsd) : null;
-        r = infer.overhead.localize(await infer.overhead.embed(img, {tta: meta.tta, cropSide}));
-        info = {gsd, tta: meta.tta, extent: meta.extent_m};
-      }
+      if(meta.pyramid){ r = await infer.overhead.localizePyramid(img, {gsd, tta: meta.tta}); pyr = r.pyramid; }
+      else { const cropSide = gsd ? Math.round(meta.image_size * meta.target_mpp / gsd) : null;
+             r = infer.overhead.localize(await infer.overhead.embed(img, {tta: meta.tta, cropSide})); }
     } else {
       r = infer.ground.localize(await infer.ground.embed(img));
     }
-    renderUpload(f.name, r, performance.now() - t0, m, info);
+    renderUpload(f.name, r, performance.now() - t0, m, pyr, meta);
   }catch(e){
-    document.getElementById('out').innerHTML = `<p class="note err">${e}</p>`;
+    document.getElementById('out').innerHTML = `<div class="empty" style="color:var(--cand)">${e}</div>`;
   }
 }
+const legend = (gt) => `<div class="legend"><span><i style="background:var(--pred)"></i>tahmin</span>${gt ? '<span><i style="background:var(--gt)"></i>gerçek</span>' : ''}<span><i style="background:var(--cand)"></i>adaylar</span></div>`;
 
-function renderUpload(name, r, ms, m, info){
+function renderUpload(name, r, ms, m, p, meta){
   last = {lat:r.lat, lon:r.lon, candidates:r.candidates};
   drawOverlays(last);
-  const p = info.pyramid;
-  const extra = m === 'overhead' && p ? `
-    <tr><td>görüntü genişliği</td><td>~${p.extent_m} m (${p.extent_from === 'gsd' ? 'm/px verildi' : 'model tahmin etti'})</td></tr>
-    <tr><td>piramit</td><td>${p.cropped ? '~205 m kırpıldı' : 'tüm görüntü'} · ${p.region_cells.toLocaleString('tr-TR')} bölge hücresi${p.picked === 'global' ? ' (genel arama kazandı)' : ''} · ~${p.code_extent_m} m kodlar</td></tr>
-    <tr><td>ortalanan yön</td><td>${info.tta} rotasyon</td></tr>` : m === 'overhead' ? `
-    <tr><td>ölçek</td><td>${info.gsd ? `${info.gsd} m/px (verildi)` : `~${Math.round(info.extent)} m varsayıldı`}</td></tr>
-    <tr><td>ortalanan yön</td><td>${info.tta} rotasyon</td></tr>` : '';
-  const how = m === 'overhead'
-    ? `Bu sonuç sayfa içinde çalışan <b>coarse-to-fine piramit</b> ile hesaplandı: önce tüm görüntüden bölge ve
-       ölçek, sonra ~205 m'lik kırpma ile bölge içinde ince arama (veritabanları PCA-128 + int8; ölçülen
-       bedeli ~1 puan R@100m). Yukarıdaki hazır örnekler sunucuda hesaplanan <b>full</b> yöntemi gösterir.`
-    : `Bu sonuç sayfa içinde çalışan <b>prototypes + aerial + refine</b> ile hesaplandı. Yukarıdaki hazır
-       örnekler <b>full</b> yöntemi gösterir; onun image-refine adımı 97.834 görüntülük bir index
-       gerektirdiği için siteye konulamadı — fark yaklaşık 1 puan R@100m.`;
-  document.getElementById('out').innerHTML = `<table>
-    <tr><td>dosya</td><td>${name}</td></tr>
-    <tr><td>tahmin</td><td>${r.lat.toFixed(6)}, ${r.lon.toFixed(6)}</td></tr>
-    <tr><td>top cell score</td><td>${r.top_score.toFixed(3)}</td></tr>${extra}
-    <tr><td>ground truth</td><td>bilinmiyor — sizin görüntünüz</td></tr>
-    <tr><td>süre</td><td>${(ms/1000).toFixed(1)} sn, bu tarayıcıda</td></tr>
-    </table>
-    <p class="note">${how}</p>`;
+  const chips = [];
+  if(p){ chips.push(`~${p.extent_m >= 1000 ? (p.extent_m/1000).toFixed(1)+' km' : p.extent_m+' m'} genişlik${p.extent_from === 'gsd' ? '' : ' (tahmin)'}`);
+         chips.push(p.cropped ? '205 m kırpma' : 'tüm görüntü'); if(p.picked === 'global') chips.push('genel arama'); }
+  if(m === 'overhead') chips.push(`${meta.tta} rotasyon`);
+  chips.push(`${(ms/1000).toFixed(1)} sn`);
+  document.getElementById('out').innerHTML = `<div class="card">
+    <div class="rrow"><img id="qimg" src="${current.src}"><div><div class="big">${r.lat.toFixed(5)}, ${r.lon.toFixed(5)}</div><div class="cap">${name} · gerçek konum bilinmiyor</div></div></div>
+    <div class="kv"><span>skor</span><span>${r.top_score.toFixed(3)}</span></div>
+    <div class="chips">${chips.map(c=>`<span class="chip">${c}</span>`).join('')}</div>
+    ${legend(false)}
+    <details><summary>Ayrıntılar</summary><p>${m === 'overhead'
+      ? 'Sayfa içinde coarse-to-fine piramit: tüm görüntüden bölge ve ölçek, ~205 m kırpma ile bölge içinde ince arama. Veritabanları PCA-128 + int8 (ölçülen bedel ~1 puan R@100 m).'
+      : 'Sayfa içinde prototypes + aerial + refine. Sunucudaki full yöntemin image-refine adımı (97.834 görüntülük index) sitede yok; fark ~1 puan R@100 m.'}</p></details>
+  </div>`;
+  document.getElementById('qimg').onclick = ()=>enlarge(current.src, current.cap);
 }
-
 function render(d){
-  last = d;
-  drawOverlays(d);
-  const head = mode === 'ground'
-    ? `<tr><td>split</td><td>${d.split}</td></tr>`
-    : `<tr><td>kaynak</td><td>${d.label}</td></tr>
-       <tr><td>yön / genişlik</td><td>${d.rotation_deg.toFixed(0)}° · ~${d.extent_m} m${d.pyramid ? ` (model tahmini ~${d.pyramid.extent_m} m)` : ''}</td></tr>`;
+  last = d; drawOverlays(d);
+  const chips = mode === 'ground' ? [d.split === 'test_seen' ? 'görülen sokak' : 'görülmemiş blok']
+    : [d.label.replace(' (unseen date)',''), `${d.rotation_deg.toFixed(0)}°`, `~${d.extent_m} m`];
   const credit = mode === 'ground'
-    ? `<p class="note credit">fotoğraf:
-      <a href="https://www.mapillary.com/app/user/${encodeURIComponent(d.creator||'')}" target="_blank" rel="noopener">${d.creator || 'Mapillary katkıcısı'}</a>
-      · <a href="${mlyUrl(d.id)}" target="_blank" rel="noopener">kaynak görüntü</a> · CC BY-SA 4.0</p>`
-    : `<p class="note credit">görüntü © Esri World Imagery${d.source === 'current' ? '' : ' Wayback'} · sonuç sunucuda <b>full</b> yöntemiyle hesaplandı (4 rotasyon)</p>`;
-  document.getElementById('out').innerHTML = `<table>${head}
-    <tr><td>tahmin</td><td>${d.lat.toFixed(6)}, ${d.lon.toFixed(6)}</td></tr>
-    <tr><td>ground truth</td><td>${d.gt_lat.toFixed(6)}, ${d.gt_lon.toFixed(6)}</td></tr>
-    <tr><td>top cell score</td><td>${d.top_score.toFixed(3)}</td></tr>
-    <tr><td>hata</td><td class="big" style="color:${d.error_m<100?'#3ddc84':d.error_m<1000?'#ffb020':'#ff5a5a'}">${fmt(d.error_m)}</td></tr>
-    </table>${credit}
-    <p class="note">
-    <span class="k" style="background:#4da3ff"></span>tahmin
-    <span class="k" style="background:#3ddc84;margin-left:10px"></span>ground truth
-    <span class="k" style="background:#ff5a5a;margin-left:10px"></span>top-20 candidate cell
-    (boyut = retrieval weight)</p>`;
+    ? `<p>Fotoğraf: <a href="https://www.mapillary.com/app/user/${encodeURIComponent(d.creator||'')}" target="_blank" rel="noopener">${d.creator || 'Mapillary katkıcısı'}</a> · <a href="${mlyUrl(d.id)}" target="_blank" rel="noopener">kaynak</a> · CC BY-SA 4.0. Sonuç sunucuda full yöntemle hesaplandı.</p>`
+    : `<p>Görüntü © Esri World Imagery${d.source === 'current' ? '' : ' Wayback'}. Sonuç sunucuda full yöntemle hesaplandı (4 rotasyon)${d.pyramid ? `; model genişliği ~${d.pyramid.extent_m} m tahmin etti` : ''}.</p>`;
+  document.getElementById('out').innerHTML = `<div class="card">
+    <div class="rrow"><img id="qimg" src="${d.img}"><div><div class="big" style="color:${errColor(d.error_m)}">${fmt(d.error_m)}</div><div class="cap">hata</div></div></div>
+    <div class="kv"><span>tahmin</span><span>${d.lat.toFixed(5)}, ${d.lon.toFixed(5)}</span></div>
+    <div class="kv"><span>gerçek</span><span>${d.gt_lat.toFixed(5)}, ${d.gt_lon.toFixed(5)}</span></div>
+    <div class="chips">${chips.map(c=>`<span class="chip">${c}</span>`).join('')}<span class="chip">skor ${d.top_score.toFixed(2)}</span></div>
+    ${legend(true)}
+    <details><summary>Ayrıntılar</summary>${credit}</details>
+  </div>`;
+  document.getElementById('qimg').onclick = ()=>enlarge(current.src, current.cap);
 }
 </script>
 </body>

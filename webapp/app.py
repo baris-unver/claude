@@ -139,6 +139,12 @@ def overhead_predict():
     return jsonify(out)
 
 
+def _csv_rows(path: Path) -> list[dict]:
+    import csv
+    with open(path, newline="") as fh:
+        return [{k: (float(v) if k not in ("source", "method") else v) for k, v in r.items()} for r in csv.DictReader(fh)]
+
+
 def _load_overhead(path: str, dev: torch.device) -> None:
     """Second model for overhead queries; silently absent when its run directory does not exist."""
     cfg = configure(load_config(path, []))
@@ -160,6 +166,8 @@ def _load_overhead(path: str, dev: torch.device) -> None:
         samples=samples, by_id={s["id"]: s for s in samples},
         results=(json.loads((cfg.out_dir / "results.json").read_text())
                  if (cfg.out_dir / "results.json").exists() else None),
+        scale_results=(_csv_rows(cfg.out_dir / "results_scale.csv")
+                       if (cfg.out_dir / "results_scale.csv").exists() else None),
     )
     oh = STATE["oh"]
     if model.scale_head is not None:  # a wider-extent run: coarse-to-fine pyramid with the extra code sets
@@ -236,7 +244,8 @@ def meta():
                            "pyramid": oh.get("pyramid") is not None, "fine_cells": oh.get("fine_cells", 0),
                            "alpha": oh["alpha"], "target_mpp": oh["target_mpp"],
                            "extent_m": oh["target_mpp"] * oh["cfg"].model.image_size,
-                           "train_releases": oh["cfg"].overhead.train_releases, "results": oh["results"]}
+                           "train_releases": oh["cfg"].overhead.train_releases, "results": oh["results"],
+                           "scale_results": oh.get("scale_results")}
     return jsonify(out)
 
 
