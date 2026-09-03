@@ -394,10 +394,15 @@ fetch('data.json').then(r=>r.json()).then(D=>{
     e.stopPropagation();                       // ⤢ enlarges without selecting
     const d = Q[+z.dataset.zoom]; enlarge(d.img, cap(d));
   });
+  // only an explicit ?q=<i> deep-link runs a query on load, and it is dropped from the URL afterwards
+  // so a refresh starts clean instead of replaying the last localisation
   const q = new URLSearchParams(location.search).get('q');
-  const el = document.querySelector(`.thumb[data-i="${q === null ? 0 : Number(q)}"]`);
-  if(el) pick(el);
+  if(q !== null){
+    const el = document.querySelector(`.thumb[data-i="${Number(q)}"]`); if(el) pick(el);
+    const u = new URL(location); u.searchParams.delete('q'); history.replaceState(null, '', u);
+  }
 });
+window.addEventListener('pageshow', e=>{ if(e.persisted) location.reload(); });
 
 document.getElementById('qimg').onclick = ()=>{ if(current) enlarge(current.src, current.cap); };
 
