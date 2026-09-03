@@ -58,14 +58,21 @@ def main():
         def __init__(self, m): super().__init__(); self.g = m.ground
         def forward(self, x): return self.g(x)
 
-    q = Q(model).eval()
+    class QS(torch.nn.Module):
+        """Query path + the scale head (overhead pyramid): embedding and log2(extent / reference)."""
+        def __init__(self, m): super().__init__(); self.g = m.ground; self.s = m.scale_head
+        def forward(self, x):
+            f, e = self.g.features(x)
+            return e, self.s(f).squeeze(-1)
+
+    pyramid = a.overhead and model.scale_head is not None
+    q = (QS(model) if pyramid else Q(model)).eval()
     dummy = torch.zeros(1, 3, size, size)
-    with torch.no_grad():
-        ref = q(dummy).numpy()
     f32 = out / "encoder_fp32.onnx"
-    torch.onnx.export(q, dummy, f32, input_names=["image"], output_names=["embedding"],
+    outputs = ["embedding", "log_scale"] if pyramid else ["embedding"]
+    torch.onnx.export(q, dummy, f32, input_names=["image"], output_names=outputs,
                       opset_version=17, dynamo=False,
-                      dynamic_axes={"image": {0: "n"}, "embedding": {0: "n"}})
+                      dynamic_axes={"image": {0: "n"}, **{o: {0: "n"} for o in outputs}})
     print(f"encoder fp32: {f32.stat().st_size/1048576:.1f} MB")
 
     # Shipped at fp32 (86 MB), deliberately. Both cheaper options were measured and rejected:
@@ -84,7 +91,8 @@ def main():
     rng = np.random.default_rng(0)
     x = rng.normal(size=(4, 3, size, size)).astype(np.float32)
     with torch.no_grad():
-        ptt = q(torch.from_numpy(x)).numpy()
+        ptt = q(torch.from_numpy(x))
+        ptt = ptt[0].numpy() if pyramid else ptt.numpy()
     for name, p in (("shipped fp32", enc),):
         o = ort.InferenceSession(str(p), providers=["CPUExecutionProvider"]).run(None, {"image": x})[0]
         cos = (o * ptt).sum(1) / (np.linalg.norm(o, axis=1) * np.linalg.norm(ptt, axis=1))
@@ -102,18 +110,58 @@ def main():
             "mean": [0.485, 0.456, 0.406], "std": [0.229, 0.224, 0.225],
             "image_refine": False, "dtype": "fp16", "pca_dim": None}
     if a.overhead:
-        # uncentred PCA keeps dot products: q.c ~ (qP).(cP); per-row int8 then costs nothing measurable
-        _, V = np.linalg.eigh(C.T @ C)
-        P = V[:, ::-1][:, :a.pca].astype(np.float32)          # (512, d)
-        R = C @ P
-        scale = (np.abs(R).max(1, keepdims=True) / 127.0).astype(np.float32)
-        np.round(R / scale).astype(np.int8).tofile(out / "cells.bin")
-        scale.ravel().tofile(out / "scales.bin")
-        P.tofile(out / "proj.bin")
         from geoloc_tr.aerial import meters_per_pixel
+
+        def compress(M, stem):
+            """uncentred PCA keeps dot products: q.c ~ (qP).(cP); per-row int8 then costs nothing measurable"""
+            _, V = np.linalg.eigh(M.T @ M)
+            P = V[:, ::-1][:, :a.pca].astype(np.float32)          # (512, d)
+            R = M @ P
+            scale = (np.abs(R).max(1, keepdims=True) / 127.0).astype(np.float32)
+            np.round(R / scale).astype(np.int8).tofile(out / f"{stem}.bin")
+            scale.ravel().tofile(out / f"{stem}_scales.bin")
+            P.tofile(out / f"{stem}_proj.bin")
+            return P, scale
+
+        P, scale = compress(C, "cells")
         mpp = meters_per_pixel(cfg.bbox.center[0], cfg.overhead.eval_zoom)
         meta.update({"dtype": "int8", "pca_dim": int(a.pca), "tta": 4, "target_mpp": mpp,
                      "extent_m": mpp * size, "mode": "overhead"})
+        if pyramid:
+            # coarse-to-fine: the 560 m class prototypes, each cell's coarse class, the extra code sets
+            from geoloc_tr.geo import cell_parent
+            from geoloc_tr.overhead import reference_extent_m
+            hier = load_checkpoint(cfg.out_dir / "best.pt", torch.device("cpu"))[2]
+            ci = hier.level_values.index(cfg.overhead.coarse_level)
+            lc = hier.levels[ci]
+            model.heads[ci].prototypes.detach().float().numpy().astype(np.float16).tofile(out / "coarse.bin")
+
+            def coarse_index(cells):
+                par = np.fromiter((cell_parent(int(c), lc.level) for c in cells), dtype=np.uint64, count=len(cells))
+                return lc.index_of(par).astype(np.int32)
+
+            coarse_index(db.cells).tofile(out / "cells_coarse.bin")
+            sets = [{"name": "cells", "extent_m": mpp * size, "centers": "centers.bin", "coarse": "cells_coarse.bin",
+                     "n": int(db.size)}]
+            for z in cfg.overhead.code_zooms:
+                pth = cfg.out_dir / f"codes_z{z}.npy"
+                if z == cfg.overhead.eval_zoom or not pth.exists():
+                    continue
+                compress(db.ground.astype(np.float32) + alpha * np.load(pth).astype(np.float32), f"cells_z{z}")
+                sets.append({"name": f"cells_z{z}", "extent_m": meters_per_pixel(cfg.bbox.center[0], z) * size,
+                             "centers": "centers.bin", "coarse": "cells_coarse.bin", "n": int(db.size)})
+            fp = cfg.out_dir / "cells_fine.npz"
+            if fp.exists():
+                fine = CellDatabase.load(fp)
+                compress(fine.ground.astype(np.float32) + alpha * fine.aerial.astype(np.float32), "cells_fine")
+                np.stack([fine.centers[:, 0], fine.centers[:, 1]], 1).astype(np.float32).tofile(out / "centers_fine.bin")
+                coarse_index(fine.cells).tofile(out / "cells_fine_coarse.bin")
+                sets.append({"name": "cells_fine", "extent_m": meters_per_pixel(cfg.bbox.center[0], cfg.overhead.fine_zoom) * size,
+                             "centers": "centers_fine.bin", "coarse": "cells_fine_coarse.bin", "n": int(fine.size)})
+            meta["pyramid"] = {"ref_extent_m": reference_extent_m(cfg), "coarse_classes": int(lc.num_classes),
+                               "coarse_topk": cfg.overhead.coarse_topk, "small_topk": cfg.overhead.small_topk,
+                               "small_extent_frac": cfg.overhead.small_extent_frac, "crop_above": 1.4, "sets": sets}
+            print("  pyramid sets:", [(x["name"], round(x["extent_m"]), x["n"]) for x in sets])
         # numerical check of the shipped database: a sample of exact cell vectors used as queries must
         # still retrieve themselves (or a same-prototype sibling within one cell) through the int8/PCA path
         rng = np.random.default_rng(1)
@@ -129,6 +177,9 @@ def main():
     np.stack([db.centers[:, 0], db.centers[:, 1]], 1).astype(np.float32).tofile(out / "centers.bin")
     json.dump(meta, open(out / "meta.json", "w"))
     tot = sum(p.stat().st_size for p in out.iterdir() if p.name != "encoder_fp32.onnx")
+    for old_name in ("scales.bin", "proj.bin"):  # names from the single-set export
+        if (out / old_name).exists() and (out / f"cells_{old_name}").exists():
+            (out / old_name).unlink()
     print(f"cells.bin {meta['dtype']}: {(out/'cells.bin').stat().st_size/1048576:.1f} MB  "
           f"({C.shape[0]}x{meta['pca_dim'] or C.shape[1]}, alpha={alpha})")
     print(f"TOTAL shipped: {tot/1048576:.1f} MB")

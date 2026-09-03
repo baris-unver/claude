@@ -69,17 +69,52 @@ export class Pipeline {
     const M = this.META = await (await fetch(`${this.dir}/meta.json`)).json();
     const step = (label, frac) => (g, t) => onProgress &&
       onProgress(label, g, t, frac[0] + (t ? g / t : 0) * (frac[1] - frac[0]));
-    const cells = await fetchProgress(`${this.dir}/cells.bin`, step('cell database', [0, 0.2]));
-    if(M.dtype === 'int8'){
-      this.CELLS = new Int8Array(cells);
-      this.SCALES = new Float32Array(await fetchProgress(`${this.dir}/scales.bin`, step('cell scales', [0.2, 0.205])));
-      this.PROJ = new Float32Array(await fetchProgress(`${this.dir}/proj.bin`, step('projection', [0.205, 0.21])));
-      this.D = M.pca_dim;
+    const py = M.pyramid || null;
+    // the main set: cells.bin (+ *_scales / *_proj when int8) and centers.bin
+    const loadSet = async (stem, centers, coarse, frac) => {
+      const cells = await fetchProgress(`${this.dir}/${stem}.bin`, step(`cell database ${stem}`, frac));
+      const set = {stem};
+      if(M.dtype === 'int8'){
+        set.CELLS = new Int8Array(cells);
+        const sc = `${this.dir}/${stem}_scales.bin`, pr = `${this.dir}/${stem}_proj.bin`;
+        set.SCALES = new Float32Array(await fetchProgress(sc));
+        set.PROJ = new Float32Array(await fetchProgress(pr));
+        set.D = M.pca_dim;
+      } else {
+        set.CELLS = f16to32(cells); set.SCALES = null; set.PROJ = null; set.D = M.dim;
+      }
+      set.CENTERS = new Float32Array(await fetchProgress(`${this.dir}/${centers}`));
+      set.N = set.CENTERS.length / 2;
+      if(coarse) set.COARSE = new Int32Array(await fetchProgress(`${this.dir}/${coarse}`));
+      return set;
+    };
+    const legacy = !py && !(await fetch(`${this.dir}/cells_scales.bin`, {method: 'HEAD'})).ok;
+    this.sets = [];
+    if(legacy){   // single-set export before the pyramid: scales.bin / proj.bin
+      const cells = await fetchProgress(`${this.dir}/cells.bin`, step('cell database', [0, 0.2]));
+      const set = {stem: 'cells'};
+      if(M.dtype === 'int8'){
+        set.CELLS = new Int8Array(cells);
+        set.SCALES = new Float32Array(await fetchProgress(`${this.dir}/scales.bin`));
+        set.PROJ = new Float32Array(await fetchProgress(`${this.dir}/proj.bin`)); set.D = M.pca_dim;
+      } else { set.CELLS = f16to32(cells); set.SCALES = null; set.PROJ = null; set.D = M.dim; }
+      set.CENTERS = new Float32Array(await fetchProgress(`${this.dir}/centers.bin`)); set.N = set.CENTERS.length / 2;
+      this.sets.push(set);
+    } else if(py){
+      const n = py.sets.length;
+      for(let i = 0; i < n; i++){
+        const d = py.sets[i];
+        const set = await loadSet(d.name, d.centers, d.coarse, [0.5 * i / n, 0.5 * (i + 1) / n]);
+        set.extent_m = d.extent_m; this.sets.push(set);
+      }
+      this.COARSE_PROTOS = f16to32(await fetchProgress(`${this.dir}/coarse.bin`, step('coarse prototypes', [0.5, 0.52])));
     } else {
-      this.CELLS = f16to32(cells); this.SCALES = null; this.PROJ = null; this.D = M.dim;
+      this.sets.push(await loadSet('cells', 'centers.bin', null, [0, 0.2]));
     }
-    this.CENTERS = new Float32Array(await fetchProgress(`${this.dir}/centers.bin`, step('cell centres', [0.21, 0.215])));
-    const enc = await fetchProgress(`${this.dir}/encoder.onnx`, step('encoder', [0.215, 0.99]));
+    // legacy field names used by localize(): the main set
+    const m = this.sets[0];
+    this.CELLS = m.CELLS; this.SCALES = m.SCALES; this.PROJ = m.PROJ; this.D = m.D; this.CENTERS = m.CENTERS;
+    const enc = await fetchProgress(`${this.dir}/encoder.onnx`, step('encoder', [py ? 0.52 : 0.215, 0.99]));
     this.session = await ORT.InferenceSession.create(enc, {executionProviders: ['wasm']});
     onProgress && onProgress('ready', 1, 1, 1);
     return M;
@@ -123,6 +158,11 @@ export class Pipeline {
     for(let k = 0; k < tta; k++) for(let d = 0; d < D; d++) q[d] += e[k * D + d];
     let nrm = 0; for(let d = 0; d < D; d++) nrm += q[d] * q[d];
     nrm = Math.sqrt(nrm) || 1e-12; for(let d = 0; d < D; d++) q[d] /= nrm;
+    if(this.session.outputNames.length > 1){          // scale head: mean log2(extent / reference) over the rotations
+      const ls = out[this.session.outputNames[1]].data; let acc = 0;
+      for(let k = 0; k < tta; k++) acc += ls[k];
+      this.lastLogScale = acc / tta;
+    }
     return q;
   }
 
@@ -130,22 +170,26 @@ export class Pipeline {
      int8 scales when the database is compressed), take top_k, keep those within refine_radius_m of
      the best, softmax their scores at refine_temperature, and take the weighted centroid on the
      sphere. */
-  localize(q){
-    const M = this.META, N = M.n_cells, D = this.D, K = Math.min(M.top_k, N);
+  localize(q, set = null, mask = null){
+    set = set || this.sets[0];
+    const M = this.META, N = set.N, D = set.D, K = Math.min(M.top_k, N);
     let qq = q;
-    if(this.PROJ){                          // q (dim) -> q P (pca_dim); proj.bin is row-major (dim, pca_dim)
+    if(set.PROJ){                           // q (dim) -> q P (pca_dim); *_proj.bin is row-major (dim, pca_dim)
       qq = new Float32Array(D);
-      for(let i = 0; i < M.dim; i++){ const qi = q[i], o = i * D; if(qi) for(let j = 0; j < D; j++) qq[j] += qi * this.PROJ[o + j]; }
+      for(let i = 0; i < M.dim; i++){ const qi = q[i], o = i * D; if(qi) for(let j = 0; j < D; j++) qq[j] += qi * set.PROJ[o + j]; }
     }
-    const sc = new Float32Array(N), C = this.CELLS, SC = this.SCALES;
+    const sc = new Float32Array(N), C = set.CELLS, SC = set.SCALES;
     for(let c = 0; c < N; c++){
+      if(mask && !mask[c]){ sc[c] = -Infinity; continue; }
       let s = 0; const o = c * D;
       for(let d = 0; d < D; d++) s += qq[d] * C[o + d];
       sc[c] = SC ? s * SC[c] : s;
     }
+    this.CENTERS = set.CENTERS;             // the centroid / candidate code below reads this set's centres
     // top-K by a linear scan (a full sort of 279k indices is the slow part otherwise)
     const order = [];
     for(let c = 0; c < N; c++){
+      if(sc[c] === -Infinity) continue;
       if(order.length < K || sc[c] > sc[order[order.length - 1]]){
         let i = order.length; order.push(c);
         while(i > 0 && sc[order[i - 1]] < sc[c]){ order[i] = order[i - 1]; i--; }
@@ -175,6 +219,37 @@ export class Pipeline {
               weight: Math.exp((sc[i] - top) / M.refine_temperature) / (wmax || 1)}))};
   }
 }
+
+/* Coarse-to-fine localisation of a photo of any ground extent (mirrors geoloc_tr.overhead.Pyramid):
+   whole photo -> embedding + extent (scale head, or `gsd` m/px) + top-k 560 m cells from the coarse
+   prototypes; wide photos are cropped to the reference extent and encoded again; the fine pass uses
+   the code set nearest in scale and scores only cells inside the region. Narrow photos widen the
+   region and also try everything, keeping the better score. */
+Pipeline.prototype.localizePyramid = async function(img, {gsd = null, tta = 4} = {}){
+  const py = this.META.pyramid;
+  if(!py) return this.localize(await this.embed(img, {tta}));
+  const S = this.META.image_size, ref = py.ref_extent_m;
+  const q0 = await this.embed(img, {tta});
+  const extent = gsd ? gsd * Math.min(img.width, img.height) : ref * Math.pow(2, this.lastLogScale || 0);
+  const from = gsd ? 'gsd' : 'estimated';
+  // coarse pass
+  const CP = this.COARSE_PROTOS, nc = py.coarse_classes, D = this.META.dim, cl = new Float32Array(nc);
+  for(let c = 0; c < nc; c++){ let s = 0; const o = c * D; for(let d = 0; d < D; d++) s += q0[d] * CP[o + d]; cl[c] = s; }
+  const small = extent < py.small_extent_frac * ref, k = small ? py.small_topk : py.coarse_topk;
+  const top = Array.from(cl.keys()).sort((a, b) => cl[b] - cl[a]).slice(0, k), topSet = new Set(top);
+  // fine pass: crop wide photos to the reference extent
+  const cropped = extent >= py.crop_above * ref;
+  let q1 = q0, fineExtent = extent;
+  if(cropped){ q1 = await this.embed(img, {tta, cropSide: Math.round(ref / extent * Math.min(img.width, img.height))}); fineExtent = ref; }
+  const set = this.sets.reduce((best, s) => Math.abs(Math.log2(fineExtent / s.extent_m)) < Math.abs(Math.log2(fineExtent / best.extent_m)) ? s : best, this.sets[0]);
+  const mask = new Uint8Array(set.N);
+  for(let c = 0; c < set.N; c++) mask[c] = topSet.has(set.COARSE[c]) ? 1 : 0;
+  let regionCells = 0; for(let c = 0; c < set.N; c++) regionCells += mask[c];
+  let r = this.localize(q1, set, mask), picked = 'region';
+  if(small){ const g = this.localize(q1, set, null); if(g.top_score > r.top_score){ r = g; picked = 'global'; } }
+  return {...r, pyramid: {extent_m: Math.round(extent), extent_from: from, cropped, set: set.stem,
+                          code_extent_m: Math.round(set.extent_m), region_cells: regionCells, picked}};
+};
 
 export const ground = new Pipeline('model');
 export const overhead = new Pipeline('model_overhead');

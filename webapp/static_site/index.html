@@ -227,21 +227,21 @@
     <div class="drop" id="drop">
       <span class="cta"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> Fotoğraf seç</span>
       <span class="sub" id="sub-ground">veya buraya sürükleyin<br>Ankara'da çekilmiş olmalı · tarayıcınızda çalışır</span>
-      <span class="sub" id="sub-overhead" hidden>veya buraya sürükleyin — Ankara'dan dikey (nadir) bir uydu / uçak / yüksek drone görüntüsü<br>
-        ideal olarak ~100–400 m genişliğinde; yön fark etmez · tarayıcınızda çalışır</span>
+      <span class="sub" id="sub-overhead" hidden>veya buraya sürükleyin — Ankara'dan dikey (nadir) bir uydu / uçak / drone görüntüsü<br>
+        ~100 m ile ~2 km genişliğinde; yön fark etmez · tarayıcınızda çalışır</span>
     </div>
     <div class="opt" id="gsdrow" hidden>
       <label for="gsd">metre / piksel</label><input id="gsd" type="number" step="0.01" min="0.02" max="20" placeholder="isteğe bağlı" autocomplete="off">
-      <span>biliniyorsa görüntüden ~205 m'lik kare kesilir; boşsa görüntünün ~205 m kapladığı varsayılır</span>
+      <span>biliniyorsa yazın; boşsa model görüntünün yer genişliğini kendisi tahmin eder</span>
     </div>
     <input type="file" id="file" accept="image/*" autocomplete="off" hidden>
     <div id="loadbox" hidden><div class="bar"><i id="barfill"></i></div>
       <p class="note" id="loadmsg" style="margin-top:6px"></p></div>
     <p class="note" id="uploadnote">İlk yüklemede model indirilir — <b>108 MB</b>, bir kez. Sonra tarayıcıda saklanır.
       Her şey cihazınızda çalışır; fotoğraf hiçbir yere gönderilmez.</p>
-    <p class="note" id="uploadnote-overhead" hidden>İlk yüklemede hava modeli indirilir — <b>124 MB</b>, bir kez
-      (86 MB encoder + 35 MB sıkıştırılmış 278.932 hücrelik veritabanı). Her şey cihazınızda çalışır;
-      görüntü hiçbir yere gönderilmez.</p>
+    <p class="note" id="uploadnote-overhead" hidden>İlk yüklemede hava modeli indirilir — <b>193 MB</b>, bir kez
+      (86 MB encoder + üç ölçekte sıkıştırılmış hücre veritabanları: 278.932 hücre × 2 ve 191.468 ince hücre).
+      Her şey cihazınızda çalışır; görüntü hiçbir yere gönderilmez.</p>
 
   </section>
   <div class="scroll">
@@ -422,8 +422,9 @@ function setMeta(){
   const el = document.getElementById('meta');
   if(mode === 'overhead' && DATA.overhead){
     const o = DATA.overhead;
-    el.textContent = `hava modu · ${o.cells.toLocaleString('tr-TR')} cell · S2 level ${o.database_level} · `+
-      `code weight α=${o.alpha} · ${o.train_dates} görüntü tarihiyle eğitildi · ${Q.overhead.length} örnek`;
+    el.textContent = `hava modu · ${o.cells.toLocaleString('tr-TR')} cell · S2 level ${o.database_level}`+
+      (o.pyramid ? ` + ${o.fine_cells.toLocaleString('tr-TR')} ince cell · piramit, her genişlik` : '') +
+      ` · code weight α=${o.alpha} · ${o.train_dates} görüntü tarihiyle eğitildi · ${Q.overhead.length} örnek`;
   } else if(DATA.ground){
     const D = DATA.ground;
     el.textContent = `${D.cells.toLocaleString('tr-TR')} cell · S2 level ${D.database_level} · aerial α=${D.alpha} · ${Q.ground.length} test fotoğrafı`;
@@ -549,9 +550,14 @@ async function upload(f){
     let r, info = {};
     if(m === 'overhead'){
       const gsd = parseFloat(document.getElementById('gsd').value) || null;
-      const cropSide = gsd ? Math.round(meta.image_size * meta.target_mpp / gsd) : null;
-      r = infer.overhead.localize(await infer.overhead.embed(img, {tta: meta.tta, cropSide}));
-      info = {gsd, tta: meta.tta, extent: meta.extent_m};
+      if(meta.pyramid){
+        r = await infer.overhead.localizePyramid(img, {gsd, tta: meta.tta});
+        info = {gsd, tta: meta.tta, extent: meta.extent_m, pyramid: r.pyramid};
+      } else {
+        const cropSide = gsd ? Math.round(meta.image_size * meta.target_mpp / gsd) : null;
+        r = infer.overhead.localize(await infer.overhead.embed(img, {tta: meta.tta, cropSide}));
+        info = {gsd, tta: meta.tta, extent: meta.extent_m};
+      }
     } else {
       r = infer.ground.localize(await infer.ground.embed(img));
     }
@@ -564,13 +570,17 @@ async function upload(f){
 function renderUpload(name, r, ms, m, info){
   last = {lat:r.lat, lon:r.lon, candidates:r.candidates};
   drawOverlays(last);
-  const extra = m === 'overhead' ? `
+  const p = info.pyramid;
+  const extra = m === 'overhead' && p ? `
+    <tr><td>görüntü genişliği</td><td>~${p.extent_m} m (${p.extent_from === 'gsd' ? 'm/px verildi' : 'model tahmin etti'})</td></tr>
+    <tr><td>piramit</td><td>${p.cropped ? '~205 m kırpıldı' : 'tüm görüntü'} · ${p.region_cells.toLocaleString('tr-TR')} bölge hücresi${p.picked === 'global' ? ' (genel arama kazandı)' : ''} · ~${p.code_extent_m} m kodlar</td></tr>
+    <tr><td>ortalanan yön</td><td>${info.tta} rotasyon</td></tr>` : m === 'overhead' ? `
     <tr><td>ölçek</td><td>${info.gsd ? `${info.gsd} m/px (verildi)` : `~${Math.round(info.extent)} m varsayıldı`}</td></tr>
     <tr><td>ortalanan yön</td><td>${info.tta} rotasyon</td></tr>` : '';
   const how = m === 'overhead'
-    ? `Bu sonuç sayfa içinde çalışan <b>prototypes + cell codes + refine</b> ile hesaplandı
-       (veritabanı PCA-128 + int8 olarak sıkıştırıldı; ölçülen bedeli ~1 puan R@100m). Yukarıdaki hazır
-       örnekler sunucuda hesaplanan <b>full</b> yöntemi gösterir.`
+    ? `Bu sonuç sayfa içinde çalışan <b>coarse-to-fine piramit</b> ile hesaplandı: önce tüm görüntüden bölge ve
+       ölçek, sonra ~205 m'lik kırpma ile bölge içinde ince arama (veritabanları PCA-128 + int8; ölçülen
+       bedeli ~1 puan R@100m). Yukarıdaki hazır örnekler sunucuda hesaplanan <b>full</b> yöntemi gösterir.`
     : `Bu sonuç sayfa içinde çalışan <b>prototypes + aerial + refine</b> ile hesaplandı. Yukarıdaki hazır
        örnekler <b>full</b> yöntemi gösterir; onun image-refine adımı 97.834 görüntülük bir index
        gerektirdiği için siteye konulamadı — fark yaklaşık 1 puan R@100m.`;
@@ -590,7 +600,7 @@ function render(d){
   const head = mode === 'ground'
     ? `<tr><td>split</td><td>${d.split}</td></tr>`
     : `<tr><td>kaynak</td><td>${d.label}</td></tr>
-       <tr><td>yön / genişlik</td><td>${d.rotation_deg.toFixed(0)}° · ~${d.extent_m} m</td></tr>`;
+       <tr><td>yön / genişlik</td><td>${d.rotation_deg.toFixed(0)}° · ~${d.extent_m} m${d.pyramid ? ` (model tahmini ~${d.pyramid.extent_m} m)` : ''}</td></tr>`;
   const credit = mode === 'ground'
     ? `<p class="note credit">fotoğraf:
       <a href="https://www.mapillary.com/app/user/${encodeURIComponent(d.creator||'')}" target="_blank" rel="noopener">${d.creator || 'Mapillary katkıcısı'}</a>
