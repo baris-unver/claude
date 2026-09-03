@@ -1,0 +1,1 @@
+{"image_size": 224, "dim": 512, "n_cells": 278932, "alpha": 2.0, "top_k": 32, "refine_radius_m": 150, "refine_temperature": 0.02, "mean": [0.485, 0.456, 0.406], "std": [0.229, 0.224, 0.225], "image_refine": false, "dtype": "int8", "pca_dim": 128, "tta": 4, "target_mpp": 0.9159128942378264, "extent_m": 205.1644883092731, "mode": "overhead"}
