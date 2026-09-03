@@ -32,7 +32,7 @@ from torchvision import transforms as T
 
 from .aerial import TILE_PX, TileCache
 from .config import BBox, Config
-from .data import IMAGENET_MEAN, IMAGENET_STD
+from .data import IMAGENET_MEAN, IMAGENET_STD, eval_transform
 from .database import CellDatabase, ImageIndex, build_database
 from .geo import CellHierarchy, LevelClasses, cell_center, cell_children, cell_ids, cell_parent, cell_vertices, cells_centers
 from .mapillary import lonlat_to_tile
@@ -340,6 +340,34 @@ def embed_views(model: GeoLocModel, ds: Dataset, cfg: Config, device, rotations:
     emb = acc / np.linalg.norm(acc, axis=1, keepdims=True).clip(1e-12)
     logits = emb @ model.heads[-1].prototypes.detach().float().cpu().numpy().T / model.heads[-1].temperature
     return emb.astype(np.float32), logits.astype(np.float32)
+
+
+def rescale_photo(img: Image.Image, px: int, gsd: float | None, target_mpp: float | None) -> Image.Image:
+    """When the photo's ground sampling distance `gsd` (m/px) is known, centre-crop the square that covers
+    the model's ground extent (`px` * `target_mpp` metres, ~205 m at z17) so the subsequent resize to `px`
+    puts one pixel on the same ground as the training views. A photo that covers less than the extent is
+    used whole (the encoder saw a 4x range of zooms in training). Unknown gsd: unchanged."""
+    if gsd and target_mpp:
+        side = min(min(img.width, img.height), int(round(px * target_mpp / gsd)))
+        left, top = (img.width - side) // 2, (img.height - side) // 2
+        img = img.crop((left, top, left + side, top + side))
+    return img
+
+
+@torch.no_grad()
+def embed_photos(model: GeoLocModel, images: list[Image.Image], px: int, device, rotations: int = 1,
+                 gsd: float | None = None, target_mpp: float | None = None) -> np.ndarray:
+    """Query embeddings of arbitrary overhead photos (shortest side resized to `px`, centre crop), averaged
+    over `rotations` in-plane rotations. Shared by scripts/09_overhead.py predict and the webapp."""
+    tf = eval_transform(px)
+    model.eval()
+    out = []
+    for img in images:
+        img = rescale_photo(img.convert("RGB"), px, gsd, target_mpp)
+        views = [img.rotate(360.0 * k / rotations, resample=Image.BILINEAR) if k else img for k in range(rotations)]
+        e = model.ground(torch.stack([tf(v) for v in views]).to(device)).float().cpu().numpy().sum(0)
+        out.append(e / np.linalg.norm(e).clip(1e-12))
+    return np.stack(out).astype(np.float32)
 
 
 def tile_change_fraction(a: TileCache, b: TileCache, tiles: list[tuple[int, int]]) -> float:

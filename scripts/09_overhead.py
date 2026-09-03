@@ -17,13 +17,12 @@ from common import device, parser, setup
 from PIL import Image
 
 from geoloc_tr.aerial import meters_per_pixel
-from geoloc_tr.data import eval_transform
 from geoloc_tr.database import CellDatabase, ImageIndex
 from geoloc_tr.evaluate import calibrate_alpha, errors_m, evaluate_queries, to_markdown
 from geoloc_tr.localize import localize
 from geoloc_tr.model import load_checkpoint
 from geoloc_tr.overhead import (OverheadQueryDataset, OverheadTrainDataset, PointSampler, build_overhead_database,
-                                configure, embed_views, overhead_hierarchy, prefetch_bbox, prefetch_tiles, tile_caches,
+                                configure, embed_photos, embed_views, overhead_hierarchy, prefetch_bbox, prefetch_tiles, tile_caches,
                                 tile_change_fraction, training_sources, urban_rects)
 from geoloc_tr.train import fit
 
@@ -139,20 +138,10 @@ def cmd_predict(cfg, args):
     idx = ImageIndex.load(idx_path) if idx_path.exists() else None
     cal = cfg.out_dir / "calibration.json"
     alpha = json.load(open(cal)).get("alpha", 0.0) if cal.exists() else 0.0
-    px = cfg.model.image_size
-    tf = eval_transform(px)
     target_mpp = meters_per_pixel(cfg.bbox.center[0], cfg.overhead.eval_zoom)
     paths = [q for pat in args.images for q in (sorted(Path().glob(pat)) or [Path(pat)])]
-    embs = []
-    for pth in paths:
-        img = Image.open(pth).convert("RGB")
-        if args.gsd:  # rescale so one pixel covers the same ground as the training views at eval_zoom
-            f = args.gsd / target_mpp
-            img = img.resize((max(px, round(img.width * f)), max(px, round(img.height * f))), Image.BILINEAR)
-        views = [img.rotate(360.0 * k / args.tta, resample=Image.BILINEAR) if k else img for k in range(args.tta)]
-        e = model.ground(torch.stack([tf(v) for v in views]).to(dev)).float().cpu().numpy().sum(0)
-        embs.append(e / np.linalg.norm(e).clip(1e-12))
-    q = np.stack(embs).astype(np.float32)
+    q = embed_photos(model, [Image.open(p) for p in paths], cfg.model.image_size, dev, rotations=args.tta,
+                     gsd=args.gsd, target_mpp=target_mpp)
     res = localize(q, db, cfg.retrieval, alpha, idx)
     pts = []
     for i, pth in enumerate(paths):
