@@ -140,6 +140,24 @@ python scripts/09_overhead.py evaluate -c $C --tta 4     # results.md; --tta ave
 python scripts/09_overhead.py predict  -c $C photo.jpg --gsd 0.6 --tta 8   # --gsd = metres/pixel if known
 ```
 
+Ankara, ViT-S/14, 16 epochs × 80k views (46 min on one laptop GPU), 2000 queries per set at z17 with random
+rotation, 4-rotation TTA. "Full" = prototypes + per-cell codes + refinement; the codes are computed from
+the current imagery, so on other dates the code-free "prototypes + refine" variant is the better choice:
+
+| query set | classification@L16 R@100m | prototypes + refine R@100m | full R@100m | full median |
+|---|---|---|---|---|
+| built-up cells, current imagery | 84.0 | 88.5 | 99.5 | 21 m |
+| uniform over the bbox, current imagery | 31.4 | 33.8 | 95.9 | 24 m |
+| built-up cells, Wayback 2023-08-31 (held-out date) | 84.5 | 89.1 | 86.5 | 40 m |
+| built-up cells, Wayback 2017-11-16 (held-out date) | 68.0 | 72.5 | 60.3 | 73 m |
+
+Full tables: `runs/ankara_overhead/results.md`. The single-date model (`runs/ankara_overhead_singledate/`)
+reaches 99.8 / 97.5 on current imagery and 26.0 / 2.4 on the two held-out dates.
+
+Both the local web app (`webapp/app.py`, header switch *Aerial / satellite photo*) and the static GitHub
+Pages demo have an aerial mode: pre-selected views from the current imagery and the two held-out
+Wayback dates, plus uploads that run in the browser (see `webapp/README.md`).
+
 What it is **not**: oblique / low-altitude drone views are a cross-view problem (different geometry from
 nadir tiles) and need real drone data to train on; a photo from a different provider, season or
 resolution than the training tiles will degrade gracefully at best. Tell `predict` the ground sampling

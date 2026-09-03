@@ -13,6 +13,7 @@
     --pred:#4da3ff; --gt:#3ddc84; --cand:#ff5a5a; --warn:#ffb020;
   }
   *{box-sizing:border-box}
+  [hidden]{display:none !important}
   html,body{height:100%;margin:0}
   body{display:flex;font:14px/1.45 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
        background:var(--bg);color:var(--ink)}
@@ -36,6 +37,18 @@
   .thumb .sp{position:absolute;top:3px;left:3px;font-size:9px;padding:1px 4px;border-radius:3px;
              background:rgba(0,0,0,.7)}
   .sp.unseen{color:var(--warn)} .sp.seen{color:var(--gt)}
+  .sp.current{color:var(--gt)} .sp.wb{color:var(--warn)}
+  .grid.sq .thumb{aspect-ratio:1/1}
+  #modes{display:flex;gap:4px;margin-top:10px;background:#0b0e12;padding:3px;border-radius:8px;
+         border:1px solid var(--line)}
+  #modes button{flex:1;font:12.5px/1 inherit;background:transparent;color:var(--dim);border:0;
+                padding:8px 6px;border-radius:6px;cursor:pointer}
+  #modes button:hover{color:var(--ink)}
+  #modes button.on{background:var(--pred);color:#04121f;font-weight:600}
+  .opt{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;color:var(--dim)}
+  .opt input{width:78px;font:12.5px inherit;background:#0b0e12;color:var(--ink);border:1px solid var(--line);
+             border-radius:5px;padding:4px 6px}
+  .opt input:focus{outline:none;border-color:var(--pred)}
   .zoom{position:absolute;top:2px;right:2px;width:20px;height:20px;border-radius:4px;
         background:rgba(0,0,0,.62);color:#fff;font-size:12px;line-height:20px;text-align:center;
         opacity:0;transition:opacity .12s}
@@ -114,21 +127,36 @@
   <header>
     <h1>geoloc-tr — where was this photo taken?</h1>
     <p id="meta">loading model…</p>
+    <div id="modes" hidden>
+      <button data-m="ground" class="on">Street-level photo</button>
+      <button data-m="overhead">Aerial / satellite photo</button>
+    </div>
   </header>
   <div class="scroll">
     <h2>Pre-selected queries</h2>
     <div class="grid" id="grid"></div>
-    <p class="note">Twelve held-out queries spanning the <b>error quantiles</b> of the full method —
+    <p class="note" id="note-ground">Twelve held-out queries spanning the <b>error quantiles</b> of the full method —
       not a best-of reel. Green = <b>test_seen</b> (another drive down a trained street),
       amber = <b>test_unseen</b> (a ~1 km block with no ground training data at all).
       The label is the error recorded during evaluation. Click to localise, ⤢ to enlarge.</p>
+    <p class="note" id="note-overhead" hidden>Twelve ~205 m overhead views at random headings, spanning the
+      <b>error quantiles</b> per source — not a best-of reel. Green = <b>current</b> Esri imagery (what the
+      cell database is built from), amber = <b>Wayback 2023 / 2017</b>: the same places on dates the model
+      never saw, which is the honest test. The label is the error recorded through this app's own
+      inference path. Click to localise, ⤢ to enlarge.</p>
 
     <h2>Or use your own</h2>
     <div class="drop" id="drop">
       <span class="cta"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> Choose a photo</span>
-      <span class="sub">or drop one here<br>it should be somewhere in Ankara for the answer to mean anything</span>
+      <span class="sub" id="sub-ground">or drop one here<br>it should be somewhere in Ankara for the answer to mean anything</span>
+      <span class="sub" id="sub-overhead" hidden>or drop one here — a nadir satellite / aircraft / high-drone image<br>
+        of somewhere in Ankara, ideally ~100–400 m across; any heading is fine</span>
     </div>
-    <input type="file" id="file" accept="image/*" hidden>
+    <div class="opt" id="gsdrow" hidden>
+      <label for="gsd">metres per pixel</label><input id="gsd" type="number" step="0.01" min="0.02" max="20" placeholder="optional" autocomplete="off">
+      <span>rescales the photo to the model's scale; leave empty to assume ~205 m across</span>
+    </div>
+    <input type="file" id="file" accept="image/*" autocomplete="off" hidden>
   </div>
   <footer>
     <h2>Result</h2>
@@ -222,6 +250,26 @@ function pin(cls, lngLat, label){
 
 function drawOverlays(d){
   clearOverlays();
+  // a basemap switch may still be loading (aerial mode flips to Satellite): sources cannot be added
+  // yet, and the style.load handler redraws `last` once it can -- so this must not throw and abort
+  // the caller's result panel
+  try{ addCandidateLayers(d); }catch(e){ /* style still loading: redrawn from `last` on style.load */ }
+  const b = new maplibregl.LngLatBounds();
+  d.candidates.forEach(c=>b.extend([c.lon, c.lat]));
+  pin('pred', [d.lon, d.lat], 'prediction'); b.extend([d.lon, d.lat]);
+  if(d.gt_lat != null){
+    pin('gt', [d.gt_lon, d.gt_lat], 'ground truth'); b.extend([d.gt_lon, d.gt_lat]);
+    try{
+      map.addSource('link', {type:'geojson', data:{type:'Feature', geometry:{type:'LineString',
+        coordinates:[[d.lon,d.lat],[d.gt_lon,d.gt_lat]]}}});
+      map.addLayer({id:'link', type:'line', source:'link',
+        paint:{'line-color':'#9fb0c4','line-width':2,'line-dasharray':[2,2.5],'line-opacity':.85}});
+    }catch(e){ /* as above */ }
+  }
+  map.fitBounds(b, {padding:110, maxZoom:16.5, duration:700});
+}
+
+function addCandidateLayers(d){
   map.addSource('cands', {type:'geojson', data:{type:'FeatureCollection', features:
     d.candidates.map(c=>({type:'Feature', properties:{w:c.weight, score:c.score},
                           geometry:{type:'Point', coordinates:[c.lon, c.lat]}}))}});
@@ -237,19 +285,6 @@ function drawOverlays(d){
     'circle-stroke-opacity':['+', 0.25, ['*', 0.55, ['get','w']]]}});
   map.on('mouseenter','cands',()=>map.getCanvas().style.cursor='crosshair');
   map.on('mouseleave','cands',()=>map.getCanvas().style.cursor='');
-
-  const b = new maplibregl.LngLatBounds();
-  d.candidates.forEach(c=>b.extend([c.lon, c.lat]));
-  pin('pred', [d.lon, d.lat], 'prediction'); b.extend([d.lon, d.lat]);
-
-  if(d.gt_lat != null){
-    pin('gt', [d.gt_lon, d.gt_lat], 'ground truth'); b.extend([d.gt_lon, d.gt_lat]);
-    map.addSource('link', {type:'geojson', data:{type:'Feature', geometry:{type:'LineString',
-      coordinates:[[d.lon,d.lat],[d.gt_lon,d.gt_lat]]}}});
-    map.addLayer({id:'link', type:'line', source:'link',
-      paint:{'line-color':'#9fb0c4','line-width':2,'line-dasharray':[2,2.5],'line-opacity':.85}});
-  }
-  map.fitBounds(b, {padding:110, maxZoom:16.5, duration:700});
 }
 
 /* ---------- ui ---------- */
@@ -263,42 +298,103 @@ function enlarge(src, caption){
 lb.onclick = ()=>lb.classList.remove('on');
 document.addEventListener('keydown', e=>{ if(e.key === 'Escape') lb.classList.remove('on'); });
 
-let samples = [], current = null;
+/* Two models behind one page: 'ground' = street-level photos (the paper's setting), 'overhead' =
+   satellite / aerial photos as queries (geoloc_tr/overhead.py). Same map, same result panel. */
+const API = {ground:{predict:'/api/predict', image:'/api/image/'},
+             overhead:{predict:'/api/overhead/predict', image:'/api/overhead/image/'}};
+let mode = 'ground', meta = null, current = null;
+const samples = {ground:[], overhead:[]};
+let styleBeforeOverhead = null;
 
-fetch('/api/meta').then(r=>r.json()).then(m=>{
-  document.getElementById('meta').textContent =
-    `${m.cells.toLocaleString()} cells at S2 level ${m.database_level} · aerial α=${m.alpha} · ${m.device}`;
-});
+function setMeta(){
+  if(!meta) return;
+  const el = document.getElementById('meta');
+  if(mode === 'overhead' && meta.overhead){
+    const o = meta.overhead;
+    el.textContent = `aerial mode · ${o.cells.toLocaleString()} cells at S2 level ${o.database_level} · `+
+      `code weight α=${o.alpha} · trained on ${1 + o.train_releases.length} imagery dates · ${meta.device}`;
+  } else {
+    el.textContent = `${meta.cells.toLocaleString()} cells at S2 level ${meta.database_level} · aerial α=${meta.alpha} · ${meta.device}`;
+  }
+}
 
-fetch('/api/samples').then(r=>r.json()).then(list=>{
-  samples = list;
+function setMode(m){
+  if(m === 'overhead' && !(meta && meta.overhead)) return;
+  const prev = mode; mode = m;
+  document.querySelectorAll('#modes button').forEach(b=>b.classList.toggle('on', b.dataset.m === m));
+  for(const id of ['note','sub']){
+    document.getElementById(`${id}-ground`).hidden = (m !== 'ground');
+    document.getElementById(`${id}-overhead`).hidden = (m !== 'overhead');
+  }
+  document.getElementById('gsdrow').hidden = (m !== 'overhead');
+  document.getElementById('grid').classList.toggle('sq', m === 'overhead');
+  // the satellite basemap makes an overhead query's match visible at a glance; restore the
+  // previous basemap when going back to street photos
+  if(m === 'overhead' && prev !== 'overhead'){ styleBeforeOverhead = styleName; if(styleName !== 'Satellite') setStyleTo('Satellite'); }
+  if(m === 'ground' && prev === 'overhead' && styleBeforeOverhead && styleBeforeOverhead !== styleName) setStyleTo(styleBeforeOverhead);
+  setMeta(); renderGrid();
+  clearOverlays(); last = null; current = null;
+  document.getElementById('qwrap').style.display = 'none';
+  document.getElementById('out').innerHTML = m === 'overhead'
+    ? '<p class="note">Pick an overhead view above, or drop in your own satellite / aerial photo.</p>'
+    : '<p class="note">Pick a query above, or drop in your own photo.</p>';
+  const u = new URL(location); if(m === 'overhead') u.searchParams.set('mode', m); else u.searchParams.delete('mode');
+  history.replaceState(null, '', u);
+}
+document.querySelectorAll('#modes button').forEach(b=>b.onclick=()=>setMode(b.dataset.m));
+
+const badge = s => mode === 'ground'
+  ? `<span class="sp ${s.split==='test_seen'?'seen':'unseen'}">${s.split==='test_seen'?'seen':'unseen'}</span>`
+  : `<span class="sp ${s.source==='current'?'current':'wb'}">${s.source==='current'?'current':s.label.slice(8,12)}</span>`;
+const caption = s => mode === 'ground'
+  ? `${s.split} · ${s.id} · recorded error ${fmt(s.recorded_err_m)}`
+  : `${s.label} · heading ${s.rotation_deg.toFixed(0)}° · ~${s.extent_m} m across · recorded error ${fmt(s.recorded_err_m)}`;
+
+function renderGrid(){
+  const list = samples[mode], api = API[mode];
   document.getElementById('grid').innerHTML = list.map((s,i)=>`
-    <div class="thumb" data-i="${i}" title="${s.split} · recorded error ${fmt(s.recorded_err_m)}">
-      <img src="/api/image/${s.id}" loading="lazy">
-      <span class="sp ${s.split==='test_seen'?'seen':'unseen'}">${s.split==='test_seen'?'seen':'unseen'}</span>
+    <div class="thumb" data-i="${i}" title="${caption(s)}">
+      <img src="${api.image}${s.id}" loading="lazy">
+      ${badge(s)}
       <span class="zoom" data-zoom="${i}" title="enlarge">⤢</span>
       <b>${fmt(s.recorded_err_m)}</b>
     </div>`).join('');
-
-  const pick = el => {
-    document.querySelectorAll('.thumb').forEach(t=>t.classList.remove('sel'));
-    el.classList.add('sel');
-    const s = samples[+el.dataset.i];
-    current = {src:`/api/image/${s.id}`,
-               cap:`${s.split} · ${s.id} · recorded error ${fmt(s.recorded_err_m)}`};
-    showQuery(current.src);
-    run({method:'POST', headers:{'Content-Type':'application/json'},
-         body: JSON.stringify({sample_id: s.id})});
-  };
   document.querySelectorAll('.thumb').forEach(el=>el.onclick=()=>pick(el));
   document.querySelectorAll('.zoom').forEach(z=>z.onclick=e=>{
     e.stopPropagation();                      // ⤢ enlarges without triggering a localisation
-    const s = samples[+z.dataset.zoom];
-    enlarge(`/api/image/${s.id}`, `${s.split} · ${s.id} · recorded error ${fmt(s.recorded_err_m)}`);
+    const s = list[+z.dataset.zoom];
+    enlarge(`${api.image}${s.id}`, caption(s));
   });
-  const q = new URLSearchParams(location.search).get('q');
-  if(q !== null){ const el = document.querySelector(`.thumb[data-i="${Number(q)}"]`); if(el) pick(el); }
+}
+
+function pick(el){
+  document.querySelectorAll('.thumb').forEach(t=>t.classList.remove('sel'));
+  el.classList.add('sel');
+  const s = samples[mode][+el.dataset.i], api = API[mode];
+  current = {src:`${api.image}${s.id}`, cap:caption(s)};
+  showQuery(current.src);
+  run({method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({sample_id: s.id})});
+}
+
+fetch('/api/meta').then(r=>r.json()).then(m=>{
+  meta = m; setMeta();
+  document.getElementById('modes').hidden = !m.overhead;
+  return Promise.all([fetch('/api/samples').then(r=>r.json()),
+                      m.overhead ? fetch('/api/overhead/samples').then(r=>r.json()) : []]);
+}).then(([g, o])=>{
+  samples.ground = g; samples.overhead = o;
+  const params = new URLSearchParams(location.search);
+  if(params.get('mode') === 'overhead' && meta.overhead) setMode('overhead'); else renderGrid();
+  // ?q=<i> deep-links one query, then drops out of the URL so a refresh starts clean instead of
+  // replaying the last localisation
+  const q = params.get('q');
+  if(q !== null){
+    const el = document.querySelector(`.thumb[data-i="${Number(q)}"]`); if(el) pick(el);
+    const u = new URL(location); u.searchParams.delete('q'); history.replaceState(null, '', u);
+  }
 });
+// a page restored from the back/forward cache would come back with the previous result; reload instead
+window.addEventListener('pageshow', e=>{ if(e.persisted) location.reload(); });
 
 function showQuery(src){
   document.getElementById('qimg').src = src;
@@ -307,7 +403,7 @@ function showQuery(src){
 document.getElementById('qimg').onclick = ()=>{ if(current) enlarge(current.src, current.cap); };
 
 const drop = document.getElementById('drop'), file = document.getElementById('file');
-drop.onclick = ()=>file.click();
+drop.onclick = e=>{ if(e.target.closest('.opt')) return; file.click(); };
 drop.ondragover = e=>{e.preventDefault(); drop.classList.add('over')};
 drop.ondragleave = ()=>drop.classList.remove('over');
 drop.ondrop = e=>{e.preventDefault(); drop.classList.remove('over'); upload(e.dataTransfer.files[0])};
@@ -320,12 +416,17 @@ function upload(f){
   current = {src:url, cap:f.name};
   showQuery(url);
   const fd = new FormData(); fd.append('file', f);
+  if(mode === 'overhead'){
+    const gsd = document.getElementById('gsd').value;
+    if(gsd) fd.append('gsd', gsd);
+    fd.append('tta', '4');
+  }
   run({method:'POST', body: fd});
 }
 
 function run(opts){
   document.getElementById('out').innerHTML = '<p class="note">localising…</p>';
-  fetch('/api/predict', opts).then(r=>r.json()).then(render)
+  fetch(API[mode].predict, opts).then(r=>r.json()).then(render)
     .catch(e=>document.getElementById('out').innerHTML = `<p class="note err">request failed: ${e}</p>`);
 }
 
@@ -337,6 +438,10 @@ function render(d){
     <tr><td>source</td><td>${d.source}</td></tr>
     <tr><td>predicted</td><td>${d.lat.toFixed(6)}, ${d.lon.toFixed(6)}</td></tr>
     <tr><td>top cell score</td><td>${d.top_score.toFixed(3)}</td></tr>`;
+  if(d.mode === 'overhead'){
+    rows += `<tr><td>scale</td><td>${d.gsd ? `${d.gsd} m/px (given)` : `assumed ~${Math.round(meta.overhead.extent_m)} m across`}</td></tr>
+      <tr><td>rotations averaged</td><td>${d.tta}</td></tr>`;
+  }
   if(d.gt_lat != null){
     rows += `<tr><td>ground truth</td><td>${d.gt_lat.toFixed(6)}, ${d.gt_lon.toFixed(6)}</td></tr>
       <tr><td>error</td><td class="big" style="color:${d.error_m<100?'#3ddc84':d.error_m<1000?'#ffb020':'#ff5a5a'}">${fmt(d.error_m)}</td></tr>`;

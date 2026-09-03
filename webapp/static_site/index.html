@@ -13,6 +13,7 @@
     --pred:#4da3ff; --gt:#3ddc84; --cand:#ff5a5a; --warn:#ffb020;
   }
   *{box-sizing:border-box}
+  [hidden]{display:none !important}
   html,body{height:100%;height:100dvh;margin:0}
   body{display:flex;font:14px/1.45 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
        background:var(--bg);color:var(--ink)}
@@ -37,6 +38,18 @@
   .thumb .sp{position:absolute;top:3px;left:3px;font-size:9px;padding:1px 4px;border-radius:3px;
              background:rgba(0,0,0,.7)}
   .sp.unseen{color:var(--warn)} .sp.seen{color:var(--gt)}
+  .sp.current{color:var(--gt)} .sp.wb{color:var(--warn)}
+  .grid.sq .thumb{aspect-ratio:1/1}
+  #modes{display:flex;gap:4px;margin-top:10px;background:#0b0e12;padding:3px;border-radius:8px;
+         border:1px solid var(--line)}
+  #modes button{flex:1;font:12.5px/1 inherit;background:transparent;color:var(--dim);border:0;
+                padding:8px 6px;border-radius:6px;cursor:pointer}
+  #modes button:hover{color:var(--ink)}
+  #modes button.on{background:var(--pred);color:#04121f;font-weight:600}
+  .opt{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;color:var(--dim);flex-wrap:wrap}
+  .opt input{width:78px;font:12.5px inherit;background:#0b0e12;color:var(--ink);border:1px solid var(--line);
+             border-radius:5px;padding:4px 6px}
+  .opt input:focus{outline:none;border-color:var(--pred)}
   .zoom{position:absolute;top:2px;right:2px;width:20px;height:20px;border-radius:4px;
         background:rgba(0,0,0,.62);color:#fff;font-size:12px;line-height:20px;text-align:center;
         opacity:0;transition:opacity .12s}
@@ -203,19 +216,32 @@
   <header>
     <h1>geoloc-tr — bu fotoğraf nerede çekildi?</h1>
     <p id="meta">yükleniyor…</p>
+    <div id="modes" hidden>
+      <button data-m="ground" class="on">Sokak fotoğrafı</button>
+      <button data-m="overhead">Hava / uydu görüntüsü</button>
+    </div>
     <p class="badge">statik demo · örnekler önceden hesaplandı, yüklemeler tarayıcınızda çalışır · <a href="https://github.com/baris-unver/claude/tree/claude/geoloc-turkey-mapillary-qgfq5b" target="_blank" rel="noopener">kaynak</a></p>
   </header>
   <section id="uploadsec">
     <h2>Kendi fotoğrafınız</h2>
     <div class="drop" id="drop">
       <span class="cta"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> Fotoğraf seç</span>
-      <span class="sub">veya buraya sürükleyin<br>Ankara'da çekilmiş olmalı · tarayıcınızda çalışır</span>
+      <span class="sub" id="sub-ground">veya buraya sürükleyin<br>Ankara'da çekilmiş olmalı · tarayıcınızda çalışır</span>
+      <span class="sub" id="sub-overhead" hidden>veya buraya sürükleyin — Ankara'dan dikey (nadir) bir uydu / uçak / yüksek drone görüntüsü<br>
+        ideal olarak ~100–400 m genişliğinde; yön fark etmez · tarayıcınızda çalışır</span>
     </div>
-    <input type="file" id="file" accept="image/*" hidden>
+    <div class="opt" id="gsdrow" hidden>
+      <label for="gsd">metre / piksel</label><input id="gsd" type="number" step="0.01" min="0.02" max="20" placeholder="isteğe bağlı" autocomplete="off">
+      <span>biliniyorsa görüntüden ~205 m'lik kare kesilir; boşsa görüntünün ~205 m kapladığı varsayılır</span>
+    </div>
+    <input type="file" id="file" accept="image/*" autocomplete="off" hidden>
     <div id="loadbox" hidden><div class="bar"><i id="barfill"></i></div>
       <p class="note" id="loadmsg" style="margin-top:6px"></p></div>
     <p class="note" id="uploadnote">İlk yüklemede model indirilir — <b>108 MB</b>, bir kez. Sonra tarayıcıda saklanır.
       Her şey cihazınızda çalışır; fotoğraf hiçbir yere gönderilmez.</p>
+    <p class="note" id="uploadnote-overhead" hidden>İlk yüklemede hava modeli indirilir — <b>124 MB</b>, bir kez
+      (86 MB encoder + 35 MB sıkıştırılmış 278.932 hücrelik veritabanı). Her şey cihazınızda çalışır;
+      görüntü hiçbir yere gönderilmez.</p>
 
   </section>
   <div class="scroll">
@@ -224,6 +250,11 @@
     <p class="note" id="samplenote">48 test fotoğrafı, hataların <b>tamamından</b> seçildi — sadece başarılı olanlar değil.
       Yeşil = <b>test_seen</b> (modelin gördüğü sokaklar), turuncu = <b>test_unseen</b> (hiç
       eğitim verisi olmayan ~1 km bloklar). Etiket, ölçülen hatadır. Konum için tıklayın,
+      büyütmek için ⤢.</p>
+    <p class="note" id="samplenote-overhead" hidden>Rastgele yönlü, ~205 m genişliğinde 12 hava görüntüsü; her kaynak için
+      hata yüzdeliklerinden seçildi — sadece başarılı olanlar değil. Yeşil = <b>güncel</b> Esri görüntüsü
+      (hücre veritabanının kaynağı), turuncu = <b>Wayback 2023 / 2017</b>: aynı yerlerin modelin hiç
+      görmediği tarihlerdeki görüntüleri — asıl sınav budur. Etiket, ölçülen hatadır. Konum için tıklayın,
       büyütmek için ⤢.</p>
 
       </div>
@@ -234,9 +265,12 @@
       <div id="out"><p class="note">Yukarıdan bir örnek seçin veya kendi fotoğrafınızı bırakın.</p></div>
     </div>
   </footer>
-  <div class="lic">Fotoğraflar © Mapillary katkıcılarına aittir,
+  <div class="lic" id="lic-ground">Fotoğraflar © Mapillary katkıcılarına aittir,
     <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener">CC BY-SA 4.0</a> ile lisanslıdır.
     Her örnek, kaynak görüntüsüne ve sahibine bağlanır.</div>
+  <div class="lic" id="lic-overhead" hidden>Hava görüntüleri: <a href="https://www.esri.com/" target="_blank" rel="noopener">Esri</a>
+    World Imagery ve <a href="https://livingatlas.arcgis.com/wayback/" target="_blank" rel="noopener">World Imagery Wayback</a>
+    © Esri, Maxar, Earthstar Geographics ve GIS kullanıcı topluluğu. Yalnızca gösterim amaçlıdır.</div>
 </aside>
 <div id="wrap"><div id="map"></div>
   <div id="brand" title="TURK Ai"><img src="TurkAI-FavIcon-512x512-1.png" alt="TURK Ai"></div>
@@ -323,6 +357,26 @@ function pin(cls, lngLat, label){
 
 function drawOverlays(d){
   clearOverlays();
+  // a basemap switch may still be loading (aerial mode flips to Satellite): sources cannot be added
+  // yet, and the style.load handler redraws `last` once it can -- so this must not throw and abort
+  // the caller's result panel
+  try{ addCandidateLayers(d); }catch(e){ /* style still loading: redrawn from `last` on style.load */ }
+  const b = new maplibregl.LngLatBounds();
+  d.candidates.forEach(c=>b.extend([c.lon, c.lat]));
+  pin('pred', [d.lon, d.lat], 'prediction'); b.extend([d.lon, d.lat]);
+  if(d.gt_lat != null){
+    pin('gt', [d.gt_lon, d.gt_lat], 'ground truth'); b.extend([d.gt_lon, d.gt_lat]);
+    try{
+      map.addSource('link', {type:'geojson', data:{type:'Feature', geometry:{type:'LineString',
+        coordinates:[[d.lon,d.lat],[d.gt_lon,d.gt_lat]]}}});
+      map.addLayer({id:'link', type:'line', source:'link',
+        paint:{'line-color':'#9fb0c4','line-width':2,'line-dasharray':[2,2.5],'line-opacity':.85}});
+    }catch(e){ /* as above */ }
+  }
+  map.fitBounds(b, {padding:110, maxZoom:16.5, duration:700});
+}
+
+function addCandidateLayers(d){
   map.addSource('cands', {type:'geojson', data:{type:'FeatureCollection', features:
     d.candidates.map(c=>({type:'Feature', properties:{w:c.weight, score:c.score},
                           geometry:{type:'Point', coordinates:[c.lon, c.lat]}}))}});
@@ -338,22 +392,9 @@ function drawOverlays(d){
     'circle-stroke-opacity':['+', 0.25, ['*', 0.55, ['get','w']]]}});
   map.on('mouseenter','cands',()=>map.getCanvas().style.cursor='crosshair');
   map.on('mouseleave','cands',()=>map.getCanvas().style.cursor='');
-
-  const b = new maplibregl.LngLatBounds();
-  d.candidates.forEach(c=>b.extend([c.lon, c.lat]));
-  pin('pred', [d.lon, d.lat], 'prediction'); b.extend([d.lon, d.lat]);
-
-  if(d.gt_lat != null){
-    pin('gt', [d.gt_lon, d.gt_lat], 'ground truth'); b.extend([d.gt_lon, d.gt_lat]);
-    map.addSource('link', {type:'geojson', data:{type:'Feature', geometry:{type:'LineString',
-      coordinates:[[d.lon,d.lat],[d.gt_lon,d.gt_lat]]}}});
-    map.addLayer({id:'link', type:'line', source:'link',
-      paint:{'line-color':'#9fb0c4','line-width':2,'line-dasharray':[2,2.5],'line-opacity':.85}});
-  }
-  map.fitBounds(b, {padding:110, maxZoom:16.5, duration:700});
 }
 
-/* ---------- ui (static build: everything comes from data.json) ---------- */
+/* ---------- ui (static build: everything comes from data.json / overhead.json) ---------- */
 const fmt = m => m == null ? '—' : (m < 1000 ? m.toFixed(0)+' m' : (m/1000).toFixed(2)+' km');
 const lb = document.getElementById('lb');
 function enlarge(src, caption){
@@ -364,61 +405,124 @@ function enlarge(src, caption){
 lb.onclick = ()=>lb.classList.remove('on');
 document.addEventListener('keydown', e=>{ if(e.key === 'Escape') lb.classList.remove('on'); });
 
-let Q = [], current = null;
+/* Two models behind one page: 'ground' = street-level photos (the paper's setting), 'overhead' =
+   satellite / aerial photos as queries (geoloc_tr/overhead.py). Same map, same result panel. */
+let mode = 'ground', current = null, styleBeforeOverhead = null;
+const DATA = {ground: null, overhead: null};
+const Q = {ground: [], overhead: []};
 const mlyUrl = id => `https://www.mapillary.com/app/?pKey=${id}&focus=photo`;
-const cap = d => `${d.split} · ${fmt(d.error_m)} · fotoğraf: ${d.creator || 'Mapillary katkıcısı'} (CC BY-SA 4.0)`;
+const cap = d => mode === 'ground'
+  ? `${d.split} · ${fmt(d.error_m)} · fotoğraf: ${d.creator || 'Mapillary katkıcısı'} (CC BY-SA 4.0)`
+  : `${d.label} · yön ${d.rotation_deg.toFixed(0)}° · ~${d.extent_m} m · hata ${fmt(d.error_m)} · © Esri`;
+const badge = d => mode === 'ground'
+  ? `<span class="sp ${d.split==='test_seen'?'seen':'unseen'}">${d.split==='test_seen'?'seen':'unseen'}</span>`
+  : `<span class="sp ${d.source==='current'?'current':'wb'}">${d.source==='current'?'güncel':d.label.slice(8,12)}</span>`;
 
-fetch('data.json').then(r=>r.json()).then(D=>{
-  Q = D.queries;
-  document.getElementById('meta').textContent =
-    `${D.cells.toLocaleString('tr-TR')} cell · S2 level ${D.database_level} · aerial α=${D.alpha} · ${Q.length} test fotoğrafı`;
-  document.getElementById('grid').innerHTML = Q.map((d,i)=>`
-    <div class="thumb" data-i="${i}" title="${d.split} · hata ${fmt(d.error_m)}">
-      <img src="${d.img}" loading="lazy" alt="street-level photo">
-      <span class="sp ${d.split==='test_seen'?'seen':'unseen'}">${d.split==='test_seen'?'seen':'unseen'}</span>
+function setMeta(){
+  const el = document.getElementById('meta');
+  if(mode === 'overhead' && DATA.overhead){
+    const o = DATA.overhead;
+    el.textContent = `hava modu · ${o.cells.toLocaleString('tr-TR')} cell · S2 level ${o.database_level} · `+
+      `code weight α=${o.alpha} · ${o.train_dates} görüntü tarihiyle eğitildi · ${Q.overhead.length} örnek`;
+  } else if(DATA.ground){
+    const D = DATA.ground;
+    el.textContent = `${D.cells.toLocaleString('tr-TR')} cell · S2 level ${D.database_level} · aerial α=${D.alpha} · ${Q.ground.length} test fotoğrafı`;
+  }
+}
+
+function renderGrid(){
+  const list = Q[mode];
+  document.getElementById('grid').classList.toggle('sq', mode === 'overhead');
+  document.getElementById('grid').innerHTML = list.map((d,i)=>`
+    <div class="thumb" data-i="${i}" title="${cap(d)}">
+      <img src="${d.img}" loading="lazy" alt="${mode === 'ground' ? 'street-level photo' : 'overhead view'}">
+      ${badge(d)}
       <span class="zoom" data-zoom="${i}" title="enlarge">⤢</span>
       <b>${fmt(d.error_m)}</b>
     </div>`).join('');
-
-  const pick = el => {
-    document.querySelectorAll('.thumb').forEach(t=>t.classList.remove('sel'));
-    el.classList.add('sel');
-    const d = Q[+el.dataset.i];
-    current = {src:d.img, cap:cap(d)};
-    document.getElementById('qimg').src = d.img;
-    document.getElementById('qwrap').style.display = 'block';
-    render(d);
-  };
   document.querySelectorAll('.thumb').forEach(el=>el.onclick=()=>pick(el));
   document.querySelectorAll('.zoom').forEach(z=>z.onclick=e=>{
     e.stopPropagation();                       // ⤢ enlarges without selecting
-    const d = Q[+z.dataset.zoom]; enlarge(d.img, cap(d));
+    const d = list[+z.dataset.zoom]; enlarge(d.img, cap(d));
   });
-  const q = new URLSearchParams(location.search).get('q');
-  const el = document.querySelector(`.thumb[data-i="${q === null ? 0 : Number(q)}"]`);
-  if(el) pick(el);
+}
+
+function pick(el){
+  document.querySelectorAll('.thumb').forEach(t=>t.classList.remove('sel'));
+  el.classList.add('sel');
+  const d = Q[mode][+el.dataset.i];
+  current = {src:d.img, cap:cap(d)};
+  document.getElementById('qimg').src = d.img;
+  document.getElementById('qwrap').style.display = 'block';
+  render(d);
+}
+
+function setMode(m){
+  if(m === 'overhead' && !DATA.overhead) return;
+  const prev = mode; mode = m;
+  document.querySelectorAll('#modes button').forEach(b=>b.classList.toggle('on', b.dataset.m === m));
+  for(const id of ['sub','samplenote','uploadnote','lic']){
+    const g = document.getElementById(id === 'samplenote' || id === 'uploadnote' ? id : `${id}-ground`);
+    if(g) g.hidden = (m !== 'ground');
+    document.getElementById(`${id}-overhead`).hidden = (m !== 'overhead');
+  }
+  document.getElementById('gsdrow').hidden = (m !== 'overhead');
+  // the satellite basemap makes an overhead query's match visible at a glance; restore the
+  // previous basemap when going back to street photos
+  if(m === 'overhead' && prev !== 'overhead'){ styleBeforeOverhead = styleName; if(styleName !== 'Satellite') setStyleTo('Satellite'); }
+  if(m === 'ground' && prev === 'overhead' && styleBeforeOverhead && styleBeforeOverhead !== styleName) setStyleTo(styleBeforeOverhead);
+  setMeta(); renderGrid();
+  clearOverlays(); last = null; current = null;
+  document.getElementById('qwrap').style.display = 'none';
+  document.getElementById('out').innerHTML = m === 'overhead'
+    ? '<p class="note">Yukarıdan bir hava görüntüsü seçin veya kendi uydu / hava görüntünüzü bırakın.</p>'
+    : '<p class="note">Yukarıdan bir örnek seçin veya kendi fotoğrafınızı bırakın.</p>';
+  const u = new URL(location); if(m === 'overhead') u.searchParams.set('mode', m); else u.searchParams.delete('mode');
+  history.replaceState(null, '', u);
+}
+document.querySelectorAll('#modes button').forEach(b=>b.onclick=()=>setMode(b.dataset.m));
+
+Promise.all([
+  fetch('data.json').then(r=>r.json()),
+  fetch('overhead.json').then(r=>r.ok ? r.json() : null).catch(()=>null),
+]).then(([D, O])=>{
+  DATA.ground = D; Q.ground = D.queries;
+  if(O){ DATA.overhead = O; Q.overhead = O.queries; document.getElementById('modes').hidden = false; }
+  const params = new URLSearchParams(location.search);
+  if(params.get('mode') === 'overhead' && O) setMode('overhead'); else { setMeta(); renderGrid(); }
+  // only an explicit ?q=<i> deep-link runs a query on load, and it is dropped from the URL afterwards
+  // so a refresh starts clean instead of replaying the last localisation
+  const q = params.get('q');
+  if(q !== null){
+    const el = document.querySelector(`.thumb[data-i="${Number(q)}"]`); if(el) pick(el);
+    const u = new URL(location); u.searchParams.delete('q'); history.replaceState(null, '', u);
+  }
 });
+window.addEventListener('pageshow', e=>{ if(e.persisted) location.reload(); });
 
 document.getElementById('qimg').onclick = ()=>{ if(current) enlarge(current.src, current.cap); };
 
 /* ---------- upload: the model runs here, in the page ---------- */
 import * as infer from './infer.js';
-let ready = null;
+const ready = {ground: null, overhead: null};
 const box = document.getElementById('loadbox'), fill = document.getElementById('barfill'),
-      msg = document.getElementById('loadmsg'), note = document.getElementById('uploadnote');
+      msg = document.getElementById('loadmsg');
 
-function ensureModel(){
-  if(ready) return ready;
+function ensureModel(m){
+  if(ready[m]) return ready[m];
+  const note = document.getElementById(m === 'overhead' ? 'uploadnote-overhead' : 'uploadnote');
   box.hidden = false; note.hidden = true;
-  ready = infer.load((label, got, total, frac)=>{
+  ready[m] = infer[m].load((label, got, total, frac)=>{
     fill.style.width = `${(frac*100).toFixed(1)}%`;
     msg.textContent = label === 'ready' ? 'model hazır — sonraki sefer için saklandı'
       : `${label}: ${(got/1048576).toFixed(1)} / ${(total/1048576).toFixed(1)} MB`;
-  }).then(m=>{ setTimeout(()=>{ box.hidden = true; note.hidden = false;
-                 note.innerHTML = 'Model yüklendi ve saklandı. Yüklemeler tamamen bu sayfada çalışır.'; }, 1500);
-               return m; })
-    .catch(e=>{ msg.textContent = 'model yüklenemedi: ' + e; ready = null; throw e; });
-  return ready;
+  }).then(meta=>{ setTimeout(()=>{ box.hidden = true; if(mode === m) note.hidden = false;
+                 note.innerHTML = m === 'overhead'
+                   ? 'Hava modeli yüklendi ve saklandı. Yüklemeler tamamen bu sayfada çalışır.'
+                   : 'Model yüklendi ve saklandı. Yüklemeler tamamen bu sayfada çalışır.'; }, 1500);
+               return meta; })
+    .catch(e=>{ msg.textContent = 'model yüklenemedi: ' + e; ready[m] = null; throw e; });
+  return ready[m];
 }
 
 const drop = document.getElementById('drop'), file = document.getElementById('file');
@@ -430,6 +534,7 @@ file.onchange = ()=>upload(file.files[0]);
 
 async function upload(f){
   if(!f) return;
+  const m = mode;
   document.querySelectorAll('.thumb').forEach(t=>t.classList.remove('sel'));
   const url = URL.createObjectURL(f);
   current = {src:url, cap:f.name};
@@ -437,46 +542,66 @@ async function upload(f){
   document.getElementById('qwrap').style.display = 'block';
   document.getElementById('out').innerHTML = '<p class="note">model yükleniyor…</p>';
   try{
-    await ensureModel();
+    const meta = await ensureModel(m);
     document.getElementById('out').innerHTML = '<p class="note">konum bulunuyor…</p>';
     const img = new Image(); img.src = url; await img.decode();
     const t0 = performance.now();
-    const r = infer.localize(await infer.embed(img));
-    renderUpload(f.name, r, performance.now() - t0);
+    let r, info = {};
+    if(m === 'overhead'){
+      const gsd = parseFloat(document.getElementById('gsd').value) || null;
+      const cropSide = gsd ? Math.round(meta.image_size * meta.target_mpp / gsd) : null;
+      r = infer.overhead.localize(await infer.overhead.embed(img, {tta: meta.tta, cropSide}));
+      info = {gsd, tta: meta.tta, extent: meta.extent_m};
+    } else {
+      r = infer.ground.localize(await infer.ground.embed(img));
+    }
+    renderUpload(f.name, r, performance.now() - t0, m, info);
   }catch(e){
     document.getElementById('out').innerHTML = `<p class="note err">${e}</p>`;
   }
 }
 
-function renderUpload(name, r, ms){
+function renderUpload(name, r, ms, m, info){
   last = {lat:r.lat, lon:r.lon, candidates:r.candidates};
   drawOverlays(last);
+  const extra = m === 'overhead' ? `
+    <tr><td>ölçek</td><td>${info.gsd ? `${info.gsd} m/px (verildi)` : `~${Math.round(info.extent)} m varsayıldı`}</td></tr>
+    <tr><td>ortalanan yön</td><td>${info.tta} rotasyon</td></tr>` : '';
+  const how = m === 'overhead'
+    ? `Bu sonuç sayfa içinde çalışan <b>prototypes + cell codes + refine</b> ile hesaplandı
+       (veritabanı PCA-128 + int8 olarak sıkıştırıldı; ölçülen bedeli ~1 puan R@100m). Yukarıdaki hazır
+       örnekler sunucuda hesaplanan <b>full</b> yöntemi gösterir.`
+    : `Bu sonuç sayfa içinde çalışan <b>prototypes + aerial + refine</b> ile hesaplandı. Yukarıdaki hazır
+       örnekler <b>full</b> yöntemi gösterir; onun image-refine adımı 97.834 görüntülük bir index
+       gerektirdiği için siteye konulamadı — fark yaklaşık 1 puan R@100m.`;
   document.getElementById('out').innerHTML = `<table>
     <tr><td>dosya</td><td>${name}</td></tr>
     <tr><td>tahmin</td><td>${r.lat.toFixed(6)}, ${r.lon.toFixed(6)}</td></tr>
-    <tr><td>top cell score</td><td>${r.top_score.toFixed(3)}</td></tr>
-    <tr><td>ground truth</td><td>bilinmiyor — sizin fotoğrafınız</td></tr>
+    <tr><td>top cell score</td><td>${r.top_score.toFixed(3)}</td></tr>${extra}
+    <tr><td>ground truth</td><td>bilinmiyor — sizin görüntünüz</td></tr>
     <tr><td>süre</td><td>${(ms/1000).toFixed(1)} sn, bu tarayıcıda</td></tr>
     </table>
-    <p class="note">Bu sonuç sayfa içinde çalışan <b>prototypes + aerial + refine</b> ile
-    hesaplandı. Yukarıdaki hazır örnekler <b>full</b> yöntemi gösterir; onun image-refine adımı
-    97.834 görüntülük bir index gerektirdiği için siteye konulamadı — fark yaklaşık 1 puan
-    R@100m.</p>`;
+    <p class="note">${how}</p>`;
 }
 
 function render(d){
   last = d;
   drawOverlays(d);
-  document.getElementById('out').innerHTML = `<table>
-    <tr><td>split</td><td>${d.split}</td></tr>
+  const head = mode === 'ground'
+    ? `<tr><td>split</td><td>${d.split}</td></tr>`
+    : `<tr><td>kaynak</td><td>${d.label}</td></tr>
+       <tr><td>yön / genişlik</td><td>${d.rotation_deg.toFixed(0)}° · ~${d.extent_m} m</td></tr>`;
+  const credit = mode === 'ground'
+    ? `<p class="note credit">fotoğraf:
+      <a href="https://www.mapillary.com/app/user/${encodeURIComponent(d.creator||'')}" target="_blank" rel="noopener">${d.creator || 'Mapillary katkıcısı'}</a>
+      · <a href="${mlyUrl(d.id)}" target="_blank" rel="noopener">kaynak görüntü</a> · CC BY-SA 4.0</p>`
+    : `<p class="note credit">görüntü © Esri World Imagery${d.source === 'current' ? '' : ' Wayback'} · sonuç sunucuda <b>full</b> yöntemiyle hesaplandı (4 rotasyon)</p>`;
+  document.getElementById('out').innerHTML = `<table>${head}
     <tr><td>tahmin</td><td>${d.lat.toFixed(6)}, ${d.lon.toFixed(6)}</td></tr>
     <tr><td>ground truth</td><td>${d.gt_lat.toFixed(6)}, ${d.gt_lon.toFixed(6)}</td></tr>
     <tr><td>top cell score</td><td>${d.top_score.toFixed(3)}</td></tr>
     <tr><td>hata</td><td class="big" style="color:${d.error_m<100?'#3ddc84':d.error_m<1000?'#ffb020':'#ff5a5a'}">${fmt(d.error_m)}</td></tr>
-    </table>
-    <p class="note credit">fotoğraf:
-      <a href="https://www.mapillary.com/app/user/${encodeURIComponent(d.creator||'')}" target="_blank" rel="noopener">${d.creator || 'Mapillary katkıcısı'}</a>
-      · <a href="${mlyUrl(d.id)}" target="_blank" rel="noopener">kaynak görüntü</a> · CC BY-SA 4.0</p>
+    </table>${credit}
     <p class="note">
     <span class="k" style="background:#4da3ff"></span>tahmin
     <span class="k" style="background:#3ddc84;margin-left:10px"></span>ground truth
