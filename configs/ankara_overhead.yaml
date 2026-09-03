@@ -1,0 +1,38 @@
+# Overhead-query model for Ankara: satellite / aerial photos in, position out. Uses the same bbox and
+# tile cache as configs/ankara.yaml; run with scripts/09_overhead.py {fetch,train,build,evaluate,predict}.
+data:
+  city: ankara
+  root: data
+aerial:
+  enabled: true
+  zoom: 18
+  patch_px: 224
+overhead:
+  levels: [12, 14, 16]
+  database_level: 17
+  zooms: [16, 17, 18]
+  eval_zoom: 17
+  rotate: true
+  samples_per_epoch: 80000
+  urban_frac: 0.5
+  eval_queries: 2000
+  val_queries: 1000
+  eval_releases: [64776, 25521]   # held-out dates: Wayback 2023-08-31 and 2017-11-16
+  train_releases: [34007, 37965, 10321, 9812, 4756, 18966, 15084]   # 2025, 2024, 2022, 2021, 2019, 2016, 2015
+  release_zooms: [16, 17]
+model:
+  backbone: "timm:vit_small_patch14_dinov2.lvd142m"
+  image_size: 224
+  embed_dim: 512
+  freeze_backbone_blocks: 4
+  aerial_enabled: false           # single (query) encoder; the tiles are the queries here
+train:
+  epochs: 16
+  batch_size: 128
+  lr: 3.0e-4
+  backbone_lr_mult: 0.1
+  num_workers: 8
+  out_dir: runs/ankara_overhead
+retrieval:
+  top_k: 32
+  refine_radius_m: 150

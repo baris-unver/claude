@@ -40,8 +40,9 @@ geoloc_tr/
   database.py   cell database (prototypes upsampled + aerial codes) and training-image index
   localize.py   retrieval + refinement
   evaluate.py   recall@d, calibration, result tables
+  overhead.py   overhead (satellite / aerial) queries: bbox cell hierarchy, random-view training data, per-cell codes
   synthetic.py  offline synthetic "city" used by the tests
-scripts/        01..08 pipeline steps + make_synthetic.py
+scripts/        01..08 pipeline steps, 09_overhead.py (overhead queries), make_synthetic.py
 configs/        ankara / istanbul / izmir / bursa / antalya / synthetic
 tests/          unit tests + an offline end-to-end run
 ```
@@ -101,6 +102,48 @@ Every script accepts `-s key=value` overrides, e.g. `-s data.city=izmir -s train
 * **07 evaluate** – prints and stores a table like the one below for `test_seen` and `test_unseen`, with
   baselines: finest-level classification, plain nearest-image retrieval, prototypes only, + refinement,
   + aerial, full.
+
+## Overhead queries: satellite / aerial photos in, position out (`scripts/09_overhead.py`)
+
+The paper only uses aerial imagery on the *database* side; queries are always street-level photos.
+`geoloc_tr/overhead.py` turns the same recipe around so that a nadir satellite or aircraft photo can be
+localised. It is independent of steps 03-08 (it only needs the bbox and the Mapillary image table for the
+"built-up" mask) and writes to its own `train.out_dir`.
+
+* **Training data is the tile pyramid itself.** Every training view is a random crop of the Esri tiles at
+  a random position in the bbox, from a random **acquisition date** (the current tiles plus the Esri
+  Wayback snapshots in `overhead.train_releases`), random native zoom (`overhead.zooms`: z16/17/18 ≈
+  410/205/103 m per 224 px at 40°N), random in-plane rotation, ±25 % scale jitter and colour jitter.
+  Several dates are essential: trained on the current imagery alone the model reaches 99.8 % R@100 m on
+  that imagery but 26 % / 2 % on the 2023 / 2017 snapshots - it memorises one rendering of the city
+  instead of recognising places. Its labels are the S2
+  cells containing the crop **centre** at `overhead.levels` (default 12/14/16 ≈ 2.2 km / 560 m / 140 m).
+  Every cell of the bbox is a class, so there are no coverage gaps; half of the views are centred in
+  built-up cells (level-15 cells that contain Mapillary images) so the city is not drowned by steppe.
+* **Database** = finest-level prototypes upsampled to `overhead.database_level` (17 ≈ 70 m) **plus one
+  encoder code per database cell** (its north-up z17 view), stored in the `aerial` slot of the cell
+  database and weighted by `alpha` (calibrated on `val`) - the paper's prototype + aerial-code
+  combination with a single encoder. The same codes form the image index for nearest-cell retrieval and
+  refinement.
+* **Evaluation.** Fixed, seeded query sets of random rotation at z17: `test_urban` (built-up cells) and
+  `test_bbox` (uniform over the bbox) rendered from the current imagery, and `test_urban` rendered from
+  **Esri Wayback** releases (`overhead.eval_releases`, default 2023-08-31 and 2017-11-16) - the same
+  places photographed on a different date, which is the honest test; the report states what fraction of
+  the Wayback tiles actually differ from the current ones.
+
+```bash
+C=configs/ankara_overhead.yaml
+python scripts/09_overhead.py fetch    -c $C     # z16-18 tiles over the bbox (~95k, 2.5 GB) + z16-17 of each training date (~26k each) + test tiles
+python scripts/09_overhead.py train    -c $C     # runs/ankara_overhead/{best,last}.pt
+python scripts/09_overhead.py build    -c $C     # cells.npz (+codes), image_index.npz, calibration.json
+python scripts/09_overhead.py evaluate -c $C --tta 4     # results.md; --tta averages over rotations
+python scripts/09_overhead.py predict  -c $C photo.jpg --gsd 0.6 --tta 8   # --gsd = metres/pixel if known
+```
+
+What it is **not**: oblique / low-altitude drone views are a cross-view problem (different geometry from
+nadir tiles) and need real drone data to train on; a photo from a different provider, season or
+resolution than the training tiles will degrade gracefully at best. Tell `predict` the ground sampling
+distance (`--gsd`) whenever you know it, otherwise the photo is assumed to cover roughly 200 m.
 
 ## Offline smoke test (no token, no GPU, ~1 min)
 

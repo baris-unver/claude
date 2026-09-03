@@ -10,7 +10,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 
 from .aerial import AerialPatchStore
 from .config import Config
@@ -35,7 +35,7 @@ def _lr_lambda(total_steps: int, warmup_steps: int):
 
 
 @torch.no_grad()
-def quick_validate(model: GeoLocModel, val_ds: GroundDataset, hierarchy: CellHierarchy, cfg: Config, device) -> dict:
+def quick_validate(model: GeoLocModel, val_ds, hierarchy: CellHierarchy, cfg: Config, device) -> dict:
     db = build_database(model, hierarchy, cfg, aerial_store=None, device=device, progress=False)
     q = embed_images(model, val_ds, cfg.train.batch_size, cfg.train.num_workers, device, progress=False)
     gt = np.stack([val_ds.lat, val_ds.lon], 1)
@@ -45,14 +45,22 @@ def quick_validate(model: GeoLocModel, val_ds: GroundDataset, hierarchy: CellHie
 
 def train(cfg: Config, train_df: pd.DataFrame, val_df: pd.DataFrame | None, hierarchy: CellHierarchy,
           aerial_store: AerialPatchStore | None, device, pretrained: bool = True) -> tuple[GeoLocModel, Path]:
-    torch.manual_seed(cfg.train.seed)
-    out = cfg.out_dir
-    out.mkdir(parents=True, exist_ok=True)
+    """Ground pipeline: street-level images (+ the aerial patch of their cell) -> fit()."""
     use_aerial = cfg.model.aerial_enabled and aerial_store is not None
     train_ds = GroundDataset(train_df, hierarchy, cfg.model.image_size, train=True,
                              aerial=aerial_store if use_aerial else None, db_level=cfg.cells.database_level,
                              augment=cfg.train.augment)
     val_ds = GroundDataset(val_df, hierarchy, cfg.model.image_size, train=False) if val_df is not None and len(val_df) else None
+    return fit(cfg, train_ds, val_ds, hierarchy, device, pretrained=pretrained, use_aerial=use_aerial)
+
+
+def fit(cfg: Config, train_ds: Dataset, val_ds: Dataset | None, hierarchy: CellHierarchy, device,
+        pretrained: bool = True, use_aerial: bool = False) -> tuple[GeoLocModel, Path]:
+    """Training loop. `train_ds` yields {"image", "labels", "latlon"} (+ {"aerial", "cell"} when
+    `use_aerial`); `val_ds` must expose `.lat` / `.lon` arrays for the per-epoch retrieval validation."""
+    torch.manual_seed(cfg.train.seed)
+    out = cfg.out_dir
+    out.mkdir(parents=True, exist_ok=True)
     dl = DataLoader(train_ds, batch_size=cfg.train.batch_size, shuffle=True, num_workers=cfg.train.num_workers,
                     drop_last=True, pin_memory=(str(device).startswith("cuda")), persistent_workers=cfg.train.num_workers > 0)
 

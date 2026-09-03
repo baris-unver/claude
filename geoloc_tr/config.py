@@ -79,6 +79,38 @@ class AerialConfig:
 
 
 @dataclass
+class OverheadConfig:
+    """Overhead (satellite / aerial) *queries*; see geoloc_tr/overhead.py and scripts/09_overhead.py."""
+
+    levels: list[int] = field(default_factory=lambda: [12, 14, 16])  # class levels: ~2.2 km / 560 m / 140 m
+    database_level: int = 17  # ~70 m cells; prototypes upsampled here, one encoder code per cell
+    zooms: list[int] = field(default_factory=lambda: [16, 17, 18])  # native tile zooms drawn at training time
+    eval_zoom: int = 17  # z17 at 40 N: 224 px ~ 205 m of ground; z18 ~ 103 m, z16 ~ 410 m
+    scale_jitter: list[float] = field(default_factory=lambda: [0.8, 1.25])
+    rotate: bool = True  # random in-plane rotation (queries of unknown heading)
+    samples_per_epoch: int = 80000
+    urban_frac: float = 0.5  # share of training views centred in built-up cells (those with Mapillary images)
+    urban_level: int = 15  # ~280 m cells define "built-up"
+    eval_queries: int = 2000
+    val_queries: int = 1000
+    # Esri Wayback: dated snapshots of World Imagery, used as different-date test sources. Release ids
+    # come from https://s3-us-west-2.amazonaws.com/config.maptiles.arcgis.com/waybackconfig.json
+    # (64776 = 2023-08-31, 25521 = 2017-11-16).
+    eval_releases: list[int] = field(default_factory=lambda: [64776, 25521])
+    # Extra *training* sources: Wayback releases whose imagery differs from the current tiles. Training on
+    # several acquisition dates is what makes the encoder recognise places rather than memorise one
+    # rendering; a model trained on the current imagery alone scores ~2-25% R@100m on other dates.
+    # Ankara epochs (z17, all different from each other and from the test releases above):
+    # 34007=2025-02-27, 37965=2024-02-08, 10321=2022-03-16, 9812=2021-02-24, 4756=2019-12-12,
+    # 18966=2016-12-20, 15084=2015-03-18.
+    train_releases: list[int] = field(default_factory=lambda: [34007, 37965, 10321, 9812, 4756, 18966, 15084])
+    release_zooms: list[int] = field(default_factory=lambda: [16, 17])  # zooms fetched for the extra sources
+    wayback_template: str = ("https://wayback.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/WMTS/1.0.0/"
+                             "default028mm/MapServer/tile/{release}/{z}/{y}/{x}")
+    tile_workers: int = 16
+
+
+@dataclass
 class CellConfig:
     # S2 levels of the classification heads (coarse -> fine). Approximate edge lengths at 40 N:
     # 11 ~ 4.5 km, 13 ~ 1.1 km, 15 ~ 280 m, 17 ~ 70 m, 18 ~ 35 m.
@@ -147,6 +179,7 @@ class Config:
     model: ModelConfig = field(default_factory=ModelConfig)
     train: TrainConfig = field(default_factory=TrainConfig)
     retrieval: RetrievalConfig = field(default_factory=RetrievalConfig)
+    overhead: OverheadConfig = field(default_factory=OverheadConfig)
 
     # ---- derived paths -------------------------------------------------------------------------
     @property
@@ -199,9 +232,10 @@ def _from_dict(cls, d: dict[str, Any]):
         elif f.name == "bbox" and isinstance(v, dict):
             v = BBox(**v)
         elif dataclasses.is_dataclass(f.type) or f.name in {"data", "aerial", "cells", "split", "model",
-                                                             "train", "retrieval"}:
+                                                             "train", "retrieval", "overhead"}:
             sub = {"data": DataConfig, "aerial": AerialConfig, "cells": CellConfig, "split": SplitConfig,
-                   "model": ModelConfig, "train": TrainConfig, "retrieval": RetrievalConfig}[f.name]
+                   "model": ModelConfig, "train": TrainConfig, "retrieval": RetrievalConfig,
+                   "overhead": OverheadConfig}[f.name]
             v = _from_dict(sub, v or {})
         kwargs[f.name] = v
     return cls(**kwargs)
