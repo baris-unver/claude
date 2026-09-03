@@ -10,6 +10,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import torch
+import torch.nn.functional as F
 from torch.utils.data import DataLoader, Dataset
 
 from .aerial import AerialPatchStore
@@ -93,8 +94,12 @@ def fit(cfg: Config, train_ds: Dataset, val_ds: Dataset | None, hierarchy: CellH
                 labels = batch["labels"].to(device)
                 gt = torch.from_numpy(latlon_to_unit(batch["latlon"][:, 0].numpy(), batch["latlon"][:, 1].numpy())).float().to(device)
                 with torch.autocast("cuda", enabled=use_amp):
-                    emb, logits = model(images)
+                    emb, logits, extra = model(images, return_extra=True)
                     loss, stats = hierarchical_loss(logits, labels, gt, centers_xyz, sigmas)
+                    if "log_scale" in extra and "log_scale" in batch:  # overhead views: extent regression
+                        l_s = F.smooth_l1_loss(extra["log_scale"].float(), batch["log_scale"].to(device).float())
+                        loss = loss + cfg.overhead.scale_loss_weight * l_s
+                        stats["loss_scale"] = float(l_s.detach())
                     if use_aerial and "aerial" in batch:
                         a_emb = model.encode_aerial(batch["aerial"].to(device, non_blocking=True))
                         l_a = ground_aerial_infonce(emb.float(), a_emb.float(), batch["cell"].to(device), cfg.model.aerial_temperature)

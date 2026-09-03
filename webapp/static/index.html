@@ -150,11 +150,11 @@
       <span class="cta"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> Choose a photo</span>
       <span class="sub" id="sub-ground">or drop one here<br>it should be somewhere in Ankara for the answer to mean anything</span>
       <span class="sub" id="sub-overhead" hidden>or drop one here — a nadir satellite / aircraft / high-drone image<br>
-        of somewhere in Ankara, ideally ~100–400 m across; any heading is fine</span>
+        of somewhere in Ankara, anywhere from ~100 m to ~2 km across; any heading is fine</span>
     </div>
     <div class="opt" id="gsdrow" hidden>
       <label for="gsd">metres per pixel</label><input id="gsd" type="number" step="0.01" min="0.02" max="20" placeholder="optional" autocomplete="off">
-      <span>rescales the photo to the model's scale; leave empty to assume ~205 m across</span>
+      <span>if known; otherwise the model estimates the photo's ground extent itself</span>
     </div>
     <input type="file" id="file" accept="image/*" autocomplete="off" hidden>
   </div>
@@ -311,8 +311,9 @@ function setMeta(){
   const el = document.getElementById('meta');
   if(mode === 'overhead' && meta.overhead){
     const o = meta.overhead;
-    el.textContent = `aerial mode · ${o.cells.toLocaleString()} cells at S2 level ${o.database_level} · `+
-      `code weight α=${o.alpha} · trained on ${1 + o.train_releases.length} imagery dates · ${meta.device}`;
+    el.textContent = `aerial mode · ${o.cells.toLocaleString()} cells at S2 level ${o.database_level}`+
+      (o.pyramid ? ` + ${o.fine_cells.toLocaleString()} fine cells · pyramid, any photo extent` : '') +
+      ` · code weight α=${o.alpha} · trained on ${1 + o.train_releases.length} imagery dates · ${meta.device}`;
   } else {
     el.textContent = `${meta.cells.toLocaleString()} cells at S2 level ${meta.database_level} · aerial α=${meta.alpha} · ${meta.device}`;
   }
@@ -438,7 +439,12 @@ function render(d){
     <tr><td>source</td><td>${d.source}</td></tr>
     <tr><td>predicted</td><td>${d.lat.toFixed(6)}, ${d.lon.toFixed(6)}</td></tr>
     <tr><td>top cell score</td><td>${d.top_score.toFixed(3)}</td></tr>`;
-  if(d.mode === 'overhead'){
+  if(d.mode === 'overhead' && d.pyramid){
+    const p = d.pyramid;
+    rows += `<tr><td>photo extent</td><td>~${p.extent_m} m (${p.extent_from === 'gsd' ? 'from m/px' : 'estimated by the model'})</td></tr>
+      <tr><td>pyramid</td><td>${p.cropped ? 'cropped to ~205 m' : 'whole photo'} · ${p.region_cells.toLocaleString()} region cells${p.picked === 'global' ? ' (global pass won)' : ''} · L${p.db_level} cells, codes z${p.code_zoom}</td></tr>
+      <tr><td>rotations averaged</td><td>${d.tta}</td></tr>`;
+  } else if(d.mode === 'overhead'){
     rows += `<tr><td>scale</td><td>${d.gsd ? `${d.gsd} m/px (given)` : `assumed ~${Math.round(meta.overhead.extent_m)} m across`}</td></tr>
       <tr><td>rotations averaged</td><td>${d.tta}</td></tr>`;
   }

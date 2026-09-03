@@ -73,8 +73,12 @@ class Encoder(nn.Module):
         self.proj = nn.Sequential(nn.Linear(feat_dim, embed_dim * 2), nn.GELU(), nn.Linear(embed_dim * 2, embed_dim))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.features(x)[1]
+
+    def features(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        """(backbone features, unit embedding)"""
         f = self.backbone(x)
-        return F.normalize(self.proj(f), dim=-1)
+        return f, F.normalize(self.proj(f), dim=-1)
 
 
 class CosineHead(nn.Module):
@@ -101,15 +105,24 @@ class GeoLocModel(nn.Module):
         freeze_vit_blocks(bb, mcfg.freeze_backbone_blocks)
         self.ground = Encoder(bb, fd, mcfg.embed_dim)
         self.heads = nn.ModuleList([CosineHead(mcfg.embed_dim, c, mcfg.temperature) for c in num_classes])
+        self.scale_head: nn.Module | None = None
+        if mcfg.scale_head:
+            self.scale_head = nn.Sequential(nn.Linear(fd, 256), nn.GELU(), nn.Linear(256, 1))
         self.aerial: Encoder | None = None
         if mcfg.aerial_enabled:
             abb, afd = build_backbone(mcfg.aerial_backbone or mcfg.backbone, mcfg.image_size, pretrained)
             freeze_vit_blocks(abb, mcfg.freeze_backbone_blocks)
             self.aerial = Encoder(abb, afd, mcfg.embed_dim)
 
-    def forward(self, images: torch.Tensor) -> tuple[torch.Tensor, list[torch.Tensor]]:
-        emb = self.ground(images)
-        return emb, [h(emb) for h in self.heads]
+    def forward(self, images: torch.Tensor, return_extra: bool = False):
+        feat, emb = self.ground.features(images)
+        logits = [h(emb) for h in self.heads]
+        if not return_extra:
+            return emb, logits
+        extra = {}
+        if self.scale_head is not None:
+            extra["log_scale"] = self.scale_head(feat).squeeze(-1)
+        return emb, logits, extra
 
     def encode_aerial(self, patches: torch.Tensor) -> torch.Tensor:
         assert self.aerial is not None

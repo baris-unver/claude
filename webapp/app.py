@@ -30,7 +30,7 @@ from geoloc_tr.geo import haversine_m                          # noqa: E402
 from geoloc_tr.localize import localize                        # noqa: E402
 from geoloc_tr.model import load_checkpoint                    # noqa: E402
 from geoloc_tr.aerial import meters_per_pixel                  # noqa: E402
-from geoloc_tr.overhead import configure, embed_photos         # noqa: E402
+from geoloc_tr.overhead import Pyramid, configure, embed_photos  # noqa: E402
 
 app = Flask(__name__, static_folder=str(Path(__file__).parent / "static"))
 STATE = {}
@@ -59,8 +59,21 @@ def _predict(img: Image.Image) -> dict:
 # overhead (satellite / aerial photo) queries -- a second model + database, see geoloc_tr/overhead.py
 # ---------------------------------------------------------------------------------------------
 def _predict_overhead(img: Image.Image, gsd: float | None, tta: int) -> dict:
+    """Pyramid (any photo extent, scale estimated when gsd is unknown) when the run has one; else the plain pass."""
     oh = STATE["oh"]
     cfg, db = oh["cfg"], oh["db"]
+    if oh.get("pyramid") is not None:
+        r = oh["pyramid"].localize(img, gsd=gsd, rotations=tta)
+        sc, cdb = r["top_scores"], r["db"]
+        w = np.exp((sc - sc.max()) / cfg.retrieval.refine_temperature)
+        cands = [{"lat": float(cdb.centers[j, 0]), "lon": float(cdb.centers[j, 1]),
+                  "score": float(s), "weight": float(v)}
+                 for j, s, v in zip(r["top_cells"][:20], sc[:20], w[:20])]
+        return {"lat": r["lat"], "lon": r["lon"], "candidates": cands, "top_score": r["top_score"],
+                "alpha": oh["alpha"], "tta": tta, "gsd": gsd, "mode": "overhead",
+                "pyramid": {"extent_m": round(r["extent_m"]), "extent_from": r["extent_from"], "cropped": r["cropped"],
+                            "db_level": r["db_level"], "code_zoom": r["code_zoom"], "region_cells": r["region_cells"],
+                            "picked": r["picked"]}}
     q = embed_photos(oh["model"], [img], cfg.model.image_size, oh["dev"], rotations=tta, gsd=gsd,
                      target_mpp=oh["target_mpp"])
     res = localize(q, db, cfg.retrieval, oh["alpha"], oh["idx"])
@@ -132,7 +145,7 @@ def _load_overhead(path: str, dev: torch.device) -> None:
     if not (cfg.out_dir / "best.pt").exists() or not (cfg.out_dir / "cells.npz").exists():
         print(f"overhead model not found under {cfg.out_dir}; aerial mode disabled")
         return
-    model, ckpt_cfg, _, _ = load_checkpoint(cfg.out_dir / "best.pt", dev)
+    model, ckpt_cfg, h, _ = load_checkpoint(cfg.out_dir / "best.pt", dev)
     cfg.model = ckpt_cfg.model
     sp = Path(__file__).parent / "overhead_samples.json"
     samples = [{**x, "path": str((ROOT / x["path"]).resolve())} for x in json.loads(sp.read_text())] if sp.exists() else []
@@ -148,8 +161,15 @@ def _load_overhead(path: str, dev: torch.device) -> None:
         results=(json.loads((cfg.out_dir / "results.json").read_text())
                  if (cfg.out_dir / "results.json").exists() else None),
     )
-    print(f"overhead model on {dev} · {STATE['oh']['db'].size} cells · alpha={STATE['oh']['alpha']} · "
-          f"{len(samples)} pre-selected overhead queries")
+    oh = STATE["oh"]
+    if model.scale_head is not None:  # a wider-extent run: coarse-to-fine pyramid with the extra code sets
+        codes = {z: np.load(cfg.out_dir / f"codes_z{z}.npy") for z in cfg.overhead.code_zooms
+                 if z != cfg.overhead.eval_zoom and (cfg.out_dir / f"codes_z{z}.npy").exists()}
+        fine = CellDatabase.load(cfg.out_dir / "cells_fine.npz") if (cfg.out_dir / "cells_fine.npz").exists() else None
+        oh["pyramid"] = Pyramid(model, h, oh["db"], oh["idx"], codes, cfg, oh["alpha"], dev, fine_db=fine)
+        oh["fine_cells"] = int(fine.size) if fine is not None else 0
+    print(f"overhead model on {dev} · {oh['db'].size} cells · alpha={oh['alpha']} · "
+          f"{len(samples)} pre-selected overhead queries · pyramid={'yes' if oh.get('pyramid') else 'no'}")
 
 
 @app.get("/")
@@ -213,6 +233,7 @@ def meta():
     if "oh" in STATE:
         oh = STATE["oh"]
         out["overhead"] = {"cells": int(oh["db"].size), "database_level": oh["cfg"].overhead.database_level,
+                           "pyramid": oh.get("pyramid") is not None, "fine_cells": oh.get("fine_cells", 0),
                            "alpha": oh["alpha"], "target_mpp": oh["target_mpp"],
                            "extent_m": oh["target_mpp"] * oh["cfg"].model.image_size,
                            "train_releases": oh["cfg"].overhead.train_releases, "results": oh["results"]}

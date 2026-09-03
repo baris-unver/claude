@@ -140,8 +140,8 @@ python scripts/09_overhead.py evaluate -c $C --tta 4     # results.md; --tta ave
 python scripts/09_overhead.py predict  -c $C photo.jpg --gsd 0.6 --tta 8   # --gsd = metres/pixel if known
 ```
 
-Ankara, ViT-S/14, 16 epochs × 80k views (46 min on one laptop GPU), 2000 queries per set at z17 with random
-rotation, 4-rotation TTA. "Full" = prototypes + per-cell codes + refinement; the codes are computed from
+Single-band model (z16-z18 views; `runs/ankara_overhead`): Ankara, ViT-S/14, 16 epochs × 80k views
+(46 min on one laptop GPU), 2000 queries per set at z17 with random rotation, 4-rotation TTA. "Full" = prototypes + per-cell codes + refinement; the codes are computed from
 the current imagery, so on other dates the code-free "prototypes + refine" variant is the better choice:
 
 | query set | classification@L16 R@100m | prototypes + refine R@100m | full R@100m | full median |
@@ -153,6 +153,40 @@ the current imagery, so on other dates the code-free "prototypes + refine" varia
 
 Full tables: `runs/ankara_overhead/results.md`. The single-date model (`runs/ankara_overhead_singledate/`)
 reaches 99.8 / 97.5 on current imagery and 26.0 / 2.4 on the two held-out dates.
+
+### Any photo extent: the pyramid (`configs/ankara_overhead.yaml`, `runs/ankara_overhead_pyramid`)
+
+The single-band model above works for photos covering ~150-400 m of ground. The current config trains
+one encoder on views from 51 m to 1.6 km (z14-z19, weighted towards the 100-400 m core), supervises a
+class level only for views narrower than 3 cell widths (`overhead.level_mask_factor`), adds a **scale
+head** that regresses log2(extent) from the backbone features, and localises coarse-to-fine:
+
+1. whole photo -> embedding, extent estimate (or `--gsd`), top-12 cells of the 560 m class head;
+2. photos wider than ~290 m are centre-cropped to the 205 m reference extent; narrower ones are used whole
+   and matched against per-cell codes rendered at the nearest zoom (z18 codes, or a **fine grid** of 35 m
+   cells with z19 codes over the built-up area for photos under ~140 m, `cells_fine.npz`);
+3. the fine pass scores only cells inside the region, then refines as before. Narrow photos use a wider
+   region (top-40) and also a global pass, keeping whichever scores higher.
+
+`scripts/09_overhead.py evaluate-scale` measures it (500 built-up test photos per extent at native
+resolution, random heading, TTA 4; R@100 m):
+
+| photo extent | single-band model | wide model, plain pass | wide model, pyramid (scale known) | pyramid (scale estimated) | pyramid, 2023 imagery |
+|---|---|---|---|---|---|
+| 1641 m | 30 | 15 | 98.8 | 97.8 | 92.0 |
+| 821 m | 62 | 38 | 99.0 | 99.2 | 92.2 |
+| 410 m | 86 | 80 | 99.0 | 99.0 | 92.8 |
+| 205 m | 99 | 99 | 98.8 | 98.6 | 89.2 |
+| 103 m | 68 | 79 | 90.8 | 90.6 | 66.2 |
+| 51 m | 38 | 26 | 71.2 | 69.2 | - |
+
+The scale head lands within 2x of the true extent on 100 % of photos (median |log2 error| 0.1-0.2), so
+the estimated-scale column is what an upload without metadata gets. Training the wider task cost nothing
+at the reference extent (99.5 -> 99.6 on `test_urban`) and gained 4-5 points on the held-out dates
+(2023: 89.1 -> 93.2, 2017: 72.5 -> 77.6, best method), at -2.5 on the whole-bbox set. The 51 m row is
+limited by the coarse pass now (true 560 m cell in its top-40 for 83 % of photos) and by genuinely
+repetitive housing; a second frame or a rough position prior is the practical fix there.
+`predict --pyramid photo.jpg [--gsd m/px]` uses it; Wayback has no z19, so the 51 m row has no 2023 entry.
 
 Both the local web app (`webapp/app.py`, header switch *Aerial / satellite photo*) and the static GitHub
 Pages demo have an aerial mode: pre-selected views from the current imagery and the two held-out

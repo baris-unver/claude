@@ -10,8 +10,16 @@ aerial:
 overhead:
   levels: [12, 14, 16]
   database_level: 17
-  zooms: [16, 17, 18]
+  zooms: [14, 15, 16, 17, 18, 19]          # 1.6 km .. 51 m per 224 px view
+  zoom_weights: [0.08, 0.12, 0.2, 0.3, 0.2, 0.1]
+  urban_only_zooms: [19]
+  release_urban_only_zooms: [18, 19]
+  level_mask_factor: 3.0
+  scale_loss_weight: 0.1
   eval_zoom: 17
+  code_zooms: [17, 18]
+  coarse_level: 14
+  coarse_topk: 12
   rotate: true
   samples_per_epoch: 80000
   urban_frac: 0.5
@@ -19,20 +27,21 @@ overhead:
   val_queries: 1000
   eval_releases: [64776, 25521]   # held-out dates: Wayback 2023-08-31 and 2017-11-16
   train_releases: [34007, 37965, 10321, 9812, 4756, 18966, 15084]   # 2025, 2024, 2022, 2021, 2019, 2016, 2015
-  release_zooms: [16, 17]
+  release_zooms: [15, 16, 17, 18]
 model:
   backbone: "timm:vit_small_patch14_dinov2.lvd142m"
   image_size: 224
   embed_dim: 512
   freeze_backbone_blocks: 4
   aerial_enabled: false           # single (query) encoder; the tiles are the queries here
+  scale_head: true                # log2-extent regression for the pyramid's scale estimate
 train:
-  epochs: 16
+  epochs: 24                      # wider extent range than the 16-epoch single-band run
   batch_size: 128
   lr: 3.0e-4
   backbone_lr_mult: 0.1
   num_workers: 8
-  out_dir: runs/ankara_overhead
+  out_dir: runs/ankara_overhead_pyramid
 retrieval:
   top_k: 32
   refine_radius_m: 150

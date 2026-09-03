@@ -21,6 +21,13 @@ image of somewhere in Ankara; give **metres per pixel** if you know it, otherwis
 to cover ~205 m. Embeddings are averaged over 4 rotations. Entering aerial mode switches the basemap to
 Satellite so the match is visible; leaving it restores the previous basemap. `?mode=overhead` deep-links it.
 
+**Any photo extent (local app).** When the overhead run has a scale head (the wider-extent config),
+the app localises uploads through the coarse-to-fine pyramid: the result panel shows the photo's estimated
+ground extent (or the one from metres-per-pixel), whether it was cropped to ~205 m, the database grid and
+code zoom used, and the region size. Measured on 500 test photos per extent: 1.6 km 97.8 %, 820 m 99.2 %,
+410 m 99.0 %, 205 m 98.6 %, 103 m 90.6 %, 51 m 69.2 % within 100 m with the model's own scale estimate.
+The static site still runs the single-band plain pass (no pyramid export yet).
+
 **Aerial mode on the static site.** `export_web.py --overhead` ships the overhead model the same way
 (86 MB fp32 encoder) but compresses its 278,932-cell database to 35 MB with an uncentred PCA to 128
 dims + int8 rows (measured cost ~1 point of R@100m; `proj.bin` is applied to the query in the page),

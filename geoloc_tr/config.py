@@ -84,8 +84,31 @@ class OverheadConfig:
 
     levels: list[int] = field(default_factory=lambda: [12, 14, 16])  # class levels: ~2.2 km / 560 m / 140 m
     database_level: int = 17  # ~70 m cells; prototypes upsampled here, one encoder code per cell
-    zooms: list[int] = field(default_factory=lambda: [16, 17, 18])  # native tile zooms drawn at training time
+    # native tile zooms drawn at training time and their sampling weights. 224 px at 40 N covers
+    # z14 1.6 km / z15 820 m / z16 410 m / z17 205 m / z18 103 m / z19 51 m; the weights keep the
+    # 100-400 m band (where the fine cells are learnable) as the bulk of the views.
+    zooms: list[int] = field(default_factory=lambda: [14, 15, 16, 17, 18, 19])
+    zoom_weights: list[float] = field(default_factory=lambda: [0.08, 0.12, 0.2, 0.3, 0.2, 0.1])
+    urban_only_zooms: list[int] = field(default_factory=lambda: [19])  # fetched for the built-up area only
+    release_urban_only_zooms: list[int] = field(default_factory=lambda: [18, 19])
+    # a class level is not supervised for views wider than this many cell edges: a 1.6 km view cannot
+    # tell which 140 m cell its centre is in, and asking it to only pollutes the fine prototypes
+    level_mask_factor: float = 3.0
+    scale_loss_weight: float = 0.1  # log2-extent regression head (see ModelConfig.scale_head)
     eval_zoom: int = 17  # z17 at 40 N: 224 px ~ 205 m of ground; z18 ~ 103 m, z16 ~ 410 m
+    code_zooms: list[int] = field(default_factory=lambda: [17, 18])  # per-cell codes rendered at these zooms
+    # pyramid inference: coarse pass on the whole photo -> top-k cells at this class level -> fine pass
+    # on a ~205 m crop restricted to those cells
+    coarse_level: int = 14
+    coarse_topk: int = 12
+    # narrow photos (< small_extent_frac x reference extent): a finer database over the built-up area
+    # (fine_level cells with codes from fine_zoom views), a wider coarse region, and a second, unrestricted
+    # fine pass -- whichever of the two scores higher wins, because the 560 m region head is weakest on them
+    fine_level: int = 18
+    fine_zoom: int = 19
+    fine_urban_only: bool = True
+    small_extent_frac: float = 0.7
+    small_topk: int = 40
     scale_jitter: list[float] = field(default_factory=lambda: [0.8, 1.25])
     rotate: bool = True  # random in-plane rotation (queries of unknown heading)
     samples_per_epoch: int = 80000
@@ -104,7 +127,7 @@ class OverheadConfig:
     # 34007=2025-02-27, 37965=2024-02-08, 10321=2022-03-16, 9812=2021-02-24, 4756=2019-12-12,
     # 18966=2016-12-20, 15084=2015-03-18.
     train_releases: list[int] = field(default_factory=lambda: [34007, 37965, 10321, 9812, 4756, 18966, 15084])
-    release_zooms: list[int] = field(default_factory=lambda: [16, 17])  # zooms fetched for the extra sources
+    release_zooms: list[int] = field(default_factory=lambda: [15, 16, 17, 18])  # zooms fetched for the extra sources
     wayback_template: str = ("https://wayback.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/WMTS/1.0.0/"
                              "default028mm/MapServer/tile/{release}/{z}/{y}/{x}")
     tile_workers: int = 16
@@ -141,6 +164,7 @@ class ModelConfig:
     aerial_backbone: str | None = None  # defaults to `backbone`
     aerial_loss_weight: float = 0.5
     aerial_temperature: float = 0.07
+    scale_head: bool = False  # regress log2(ground extent / reference extent) from backbone features
 
 
 @dataclass
