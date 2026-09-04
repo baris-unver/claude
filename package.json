@@ -1,0 +1,20 @@
+{
+  "name": "denetimli-serbestlik",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Denetimli serbestlik hükümlüleri için mobil takip ve yoklama sistemi (elektronik kelepçe / karakolda imza alternatifi)",
+  "workspaces": [
+    "backend",
+    "admin"
+  ],
+  "scripts": {
+    "backend:dev": "npm --workspace backend run dev",
+    "backend:test": "npm --workspace backend run test",
+    "admin:dev": "npm --workspace admin run dev",
+    "typecheck": "npm --workspace backend run typecheck && npm --workspace admin run typecheck",
+    "test": "npm --workspace backend run test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

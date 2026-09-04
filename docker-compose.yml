@@ -1,0 +1,32 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ds
+      POSTGRES_PASSWORD: ds
+      POSTGRES_DB: denetimli_serbestlik
+    ports:
+      - "5432:5432"
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ds -d denetimli_serbestlik"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgres://ds:ds@db:5432/denetimli_serbestlik
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production-32-characters-min}
+      PORT: 3000
+      SEED_DEMO: "true"
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  dbdata:
